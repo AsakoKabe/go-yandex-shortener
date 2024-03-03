@@ -75,6 +75,7 @@ func Test_getURL(t *testing.T) {
 			w := httptest.NewRecorder()
 			h.getURL(w, request)
 			res := w.Result()
+			res.Body.Close()
 
 			assert.Equal(t, http.StatusTemporaryRedirect, res.StatusCode)
 			assert.Equal(t, res.Header.Get("Location"), url)
@@ -87,6 +88,7 @@ func Test_getURL(t *testing.T) {
 		w := httptest.NewRecorder()
 		h.getURL(w, request)
 		res := w.Result()
+		res.Body.Close()
 
 		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
 	})
@@ -104,6 +106,7 @@ func setUpSimple() (map[string]string, *Handler) {
 		w := httptest.NewRecorder()
 		h.createShortURL(w, request)
 		res := w.Result()
+		res.Body.Close()
 		resBody, _ := io.ReadAll(res.Body)
 		short := strings.Split(string(resBody), "/")
 		urlMap[url] = "/" + short[(len(short)-1)]
