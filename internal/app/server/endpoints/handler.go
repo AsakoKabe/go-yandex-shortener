@@ -47,7 +47,7 @@ func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("https://" + r.Host + shortURL))
+	w.Write([]byte("http://" + r.Host + shortURL))
 }
 
 func (h *Handler) emptyURL(url string) bool {
