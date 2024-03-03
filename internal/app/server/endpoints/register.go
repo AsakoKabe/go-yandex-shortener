@@ -6,7 +6,7 @@ import (
 )
 
 func RegisterHTTPEndpoint(router *http.ServeMux) error {
-	h := NewHandler(shortener.NewUrlMapper(5))
+	h := NewHandler(shortener.NewURLMapper(5))
 
 	router.HandleFunc("/", h.root)
 

@@ -28,7 +28,7 @@ func (a *App) Run(port string) error {
 	}
 
 	a.httpServer = &http.Server{
-		Addr:           "localhost:" + port,
+		Addr:           ":" + port,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,

@@ -7,26 +7,26 @@ import (
 )
 
 type Handler struct {
-	urlShortener shortener.UrlShortener
+	urlShortener shortener.URLShortener
 }
 
-func NewHandler(urlShortener shortener.UrlShortener) *Handler {
+func NewHandler(urlShortener shortener.URLShortener) *Handler {
 	return &Handler{urlShortener: urlShortener}
 }
 
 func (h *Handler) root(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		h.createShortUrl(w, r)
+		h.createShortURL(w, r)
 	case http.MethodGet:
-		h.getUrl(w, r)
+		h.getURL(w, r)
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
 }
 
-func (h *Handler) createShortUrl(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	url, err := readBody(r.Body)
@@ -35,28 +35,33 @@ func (h *Handler) createShortUrl(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if h.emptyUrl(url) {
+	if h.emptyURL(url) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	shortUlr, err := h.urlShortener.Add(url)
+	shortURL, err := h.urlShortener.Add(url)
+	if err != nil {
+		log.Printf("error to create short url, err: %+v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(r.Host + shortUlr))
+	w.Write([]byte("https://" + r.Host + shortURL))
 }
 
-func (h *Handler) emptyUrl(url string) bool {
+func (h *Handler) emptyURL(url string) bool {
 	return url == ""
 }
 
-func (h *Handler) getUrl(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) getURL(w http.ResponseWriter, r *http.Request) {
 	url, err := h.urlShortener.Get(r.URL.Path)
 	if err != nil {
 		log.Printf("error to get url, err: %+v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if h.shortUrlNotExist(url) {
+	if h.shortURLNotExist(url) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -64,6 +69,6 @@ func (h *Handler) getUrl(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-func (h *Handler) shortUrlNotExist(url string) bool {
+func (h *Handler) shortURLNotExist(url string) bool {
 	return url == ""
 }
