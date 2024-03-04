@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/endpoints"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"log"
 	"net/http"
 	"os"
@@ -19,7 +21,9 @@ func NewApp() *App {
 }
 
 func (a *App) Run(port string) error {
-	router := http.NewServeMux()
+	router := chi.NewRouter()
+
+	router.Use(middleware.Logger)
 
 	err := endpoints.RegisterHTTPEndpoint(router)
 	if err != nil {
@@ -37,7 +41,7 @@ func (a *App) Run(port string) error {
 	go func() {
 		err := http.ListenAndServe(
 			":"+port,
-			Conveyor(router, logRequest),
+			router,
 		)
 		if err != nil {
 			log.Fatalf("Failed to listen and serve: %+v", err)

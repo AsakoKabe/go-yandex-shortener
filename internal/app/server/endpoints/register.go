@@ -2,13 +2,14 @@ package endpoints
 
 import (
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener"
-	"net/http"
+	"github.com/go-chi/chi/v5"
 )
 
-func RegisterHTTPEndpoint(router *http.ServeMux) error {
+func RegisterHTTPEndpoint(router *chi.Mux) error {
 	h := NewHandler(shortener.NewURLMapper(5))
 
-	router.HandleFunc("/", h.root)
+	router.Get("/{id}", h.getURL)
+	router.Post("/", h.createShortURL)
 
 	return nil
 }

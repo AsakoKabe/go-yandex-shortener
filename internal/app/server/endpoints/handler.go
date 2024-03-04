@@ -2,6 +2,7 @@ package endpoints
 
 import (
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener"
+	"github.com/go-chi/chi/v5"
 	"log"
 	"net/http"
 )
@@ -12,18 +13,6 @@ type Handler struct {
 
 func NewHandler(urlShortener shortener.URLShortener) *Handler {
 	return &Handler{urlShortener: urlShortener}
-}
-
-func (h *Handler) root(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodPost:
-		h.createShortURL(w, r)
-	case http.MethodGet:
-		h.getURL(w, r)
-	default:
-		w.WriteHeader(http.StatusBadRequest)
-	}
-
 }
 
 func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
@@ -56,13 +45,22 @@ func (h *Handler) emptyURL(url string) bool {
 }
 
 func (h *Handler) getURL(w http.ResponseWriter, r *http.Request) {
-	url, err := h.urlShortener.Get(r.URL.Path)
+	shortURL := chi.URLParam(r, "id")
+
+	if urlNotEmpty(shortURL) {
+		log.Printf("shortURL not found")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	url, err := h.urlShortener.Get(shortURL)
 	if err != nil {
 		log.Printf("error to get url, err: %+v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if h.shortURLNotExist(url) {
+	if urlNotEmpty(url) {
+		log.Printf("URL not found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -70,6 +68,6 @@ func (h *Handler) getURL(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-func (h *Handler) shortURLNotExist(url string) bool {
+func urlNotEmpty(url string) bool {
 	return url == ""
 }
