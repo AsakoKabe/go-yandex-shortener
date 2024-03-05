@@ -1,15 +1,20 @@
 package main
 
 import (
+	"github.com/AsakoKabe/go-yandex-shortener/config"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server"
 	"log"
 )
 
 func main() {
-	app := server.NewApp()
-	port := "8080"
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return
+	}
 
-	if err := app.Run(port); err != nil {
+	app := server.NewApp()
+
+	if err := app.Run(cfg); err != nil {
 		log.Fatalf("%s", err.Error())
 	}
 }

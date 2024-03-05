@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/AsakoKabe/go-yandex-shortener/config"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/endpoints"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -20,7 +21,7 @@ func NewApp() *App {
 	return &App{}
 }
 
-func (a *App) Run(port string) error {
+func (a *App) Run(cfg *config.Config) error {
 	router := chi.NewRouter()
 
 	router.Use(middleware.Logger)
@@ -32,7 +33,7 @@ func (a *App) Run(port string) error {
 	}
 
 	a.httpServer = &http.Server{
-		Addr:           ":" + port,
+		Addr:           cfg.Host + ":" + cfg.Port,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -40,7 +41,7 @@ func (a *App) Run(port string) error {
 
 	go func() {
 		err := http.ListenAndServe(
-			":"+port,
+			cfg.Host+":"+cfg.Port,
 			router,
 		)
 		if err != nil {
