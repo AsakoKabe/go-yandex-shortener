@@ -26,7 +26,7 @@ func (a *App) Run(cfg *config.Config) error {
 
 	router.Use(middleware.Logger)
 
-	err := endpoints.RegisterHTTPEndpoint(router)
+	err := endpoints.RegisterHTTPEndpoint(router, cfg)
 	if err != nil {
 		log.Fatalf("Failed to register endpoints: %+v", err)
 		return err

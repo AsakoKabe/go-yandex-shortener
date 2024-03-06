@@ -9,10 +9,17 @@ import (
 
 type Handler struct {
 	urlShortener shortener.URLShortener
+	prefixURL    string
 }
 
-func NewHandler(urlShortener shortener.URLShortener) *Handler {
-	return &Handler{urlShortener: urlShortener}
+func NewHandler(
+	urlShortener shortener.URLShortener,
+	prefixURL string,
+) *Handler {
+	return &Handler{
+		urlShortener: urlShortener,
+		prefixURL:    prefixURL,
+	}
 }
 
 func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +44,7 @@ func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("http://" + r.Host + shortURL))
+	w.Write([]byte(h.prefixURL + shortURL))
 }
 
 func (h *Handler) emptyURL(url string) bool {
@@ -45,7 +52,7 @@ func (h *Handler) emptyURL(url string) bool {
 }
 
 func (h *Handler) getURL(w http.ResponseWriter, r *http.Request) {
-	shortURL := chi.URLParam(r, "id")
+	shortURL := "/" + chi.URLParam(r, "id")
 
 	if urlNotEmpty(shortURL) {
 		log.Printf("shortURL not found")

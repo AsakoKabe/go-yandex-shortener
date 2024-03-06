@@ -21,7 +21,7 @@ func (m *URLMapper) Add(url string) (string, error) {
 }
 
 func (m *URLMapper) Get(shortURL string) (string, error) {
-	url, ok := m.mapping["/"+shortURL]
+	url, ok := m.mapping[shortURL]
 	if ok {
 		return url, nil
 	}

@@ -2,6 +2,7 @@ package config
 
 type Config struct {
 	NetAddress
+	PrefixURL string
 }
 
 type NetAddress struct {

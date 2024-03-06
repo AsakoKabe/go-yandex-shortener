@@ -48,7 +48,7 @@ func Test_createShortURL(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, "/", test.body)
 			w := httptest.NewRecorder()
-			h := NewHandler(test.shortener)
+			h := NewHandler(test.shortener, "http://localhost:80")
 
 			h.createShortURL(w, request)
 
@@ -104,7 +104,7 @@ func setUpSimple() (map[string]string, *Handler) {
 		"https://ya.ru",
 		"https://example.com",
 	}
-	h := NewHandler(shortener.NewURLMapper(5))
+	h := NewHandler(shortener.NewURLMapper(5), "http://localhost:80")
 
 	for _, url := range urls {
 		request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(url))
