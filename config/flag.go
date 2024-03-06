@@ -28,7 +28,7 @@ func parseFlag(c *Config) {
 	}
 	_ = flag.Value(&c.NetAddress)
 	flag.Var(&c.NetAddress, "a", "Net address host:port")
-	flag.StringVar(&c.PrefixURL, "b", "http://localhost:8000", "short url prefix")
+	flag.StringVar(&c.PrefixURL, "b", "http://localhost:8080", "short url prefix")
 	flag.Parse()
 	fmt.Println(c.NetAddress)
 }
