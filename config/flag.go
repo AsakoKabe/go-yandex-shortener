@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"strings"
 )
 
@@ -21,8 +22,13 @@ func (a *NetAddress) Set(s string) error {
 }
 
 func parseFlag(c *Config) {
+	c.NetAddress = NetAddress{
+		Host: "localhost",
+		Port: "8080",
+	}
 	_ = flag.Value(&c.NetAddress)
 	flag.Var(&c.NetAddress, "a", "Net address host:port")
 	flag.StringVar(&c.PrefixURL, "b", "http://localhost:8000", "short url prefix")
 	flag.Parse()
+	fmt.Println(c.NetAddress)
 }
