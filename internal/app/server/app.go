@@ -33,7 +33,7 @@ func (a *App) Run(cfg *config.Config) error {
 	}
 
 	a.httpServer = &http.Server{
-		Addr:           cfg.Host + ":" + cfg.Port,
+		Addr:           cfg.Addr,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -41,7 +41,7 @@ func (a *App) Run(cfg *config.Config) error {
 
 	go func() {
 		err := http.ListenAndServe(
-			cfg.Host+":"+cfg.Port,
+			cfg.Addr,
 			router,
 		)
 		if err != nil {
