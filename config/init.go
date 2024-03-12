@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/caarlos0/env/v10"
 	"log"
+
+	"github.com/caarlos0/env/v10"
 )
 
 type Config struct {

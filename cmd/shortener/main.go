@@ -1,9 +1,10 @@
 package main
 
 import (
+	"log"
+
 	"github.com/AsakoKabe/go-yandex-shortener/config"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server"
-	"log"
 )
 
 func main() {

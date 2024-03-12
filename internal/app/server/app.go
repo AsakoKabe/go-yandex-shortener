@@ -2,15 +2,17 @@ package server
 
 import (
 	"context"
-	"github.com/AsakoKabe/go-yandex-shortener/config"
-	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/endpoints"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/AsakoKabe/go-yandex-shortener/config"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/handlers"
 )
 
 type App struct {
@@ -26,9 +28,9 @@ func (a *App) Run(cfg *config.Config) error {
 
 	router.Use(middleware.Logger)
 
-	err := endpoints.RegisterHTTPEndpoint(router, cfg)
+	err := handlers.RegisterHTTPEndpoint(router, cfg)
 	if err != nil {
-		log.Fatalf("Failed to register endpoints: %+v", err)
+		log.Fatalf("Failed to register handlers: %+v", err)
 		return err
 	}
 

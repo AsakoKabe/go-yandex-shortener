@@ -1,19 +1,19 @@
-package endpoints
+package handlers
 
 import (
-	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener"
-	"github.com/go-chi/chi/v5"
 	"log"
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type Handler struct {
-	urlShortener shortener.URLShortener
+	urlShortener URLShortener
 	prefixURL    string
 }
 
 func NewHandler(
-	urlShortener shortener.URLShortener,
+	urlShortener URLShortener,
 	prefixURL string,
 ) *Handler {
 	return &Handler{
@@ -60,9 +60,9 @@ func (h *Handler) getURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, err := h.urlShortener.Get(shortURL)
-	if err != nil {
-		log.Printf("error to get url, err: %+v", err)
+	url, ok := h.urlShortener.Get(shortURL)
+	if !ok {
+		log.Printf("error to get url")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

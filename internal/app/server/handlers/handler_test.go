@@ -1,4 +1,4 @@
-package endpoints
+package handlers
 
 import (
 	"context"
@@ -23,7 +23,7 @@ func Test_createShortURL(t *testing.T) {
 		name      string
 		want      want
 		body      io.Reader
-		shortener shortener.URLShortener
+		shortener URLShortener
 	}{
 		{
 			name: "simple positive",

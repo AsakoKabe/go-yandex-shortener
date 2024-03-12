@@ -1,9 +1,10 @@
-package endpoints
+package handlers
 
 import (
+	"github.com/go-chi/chi/v5"
+
 	"github.com/AsakoKabe/go-yandex-shortener/config"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener"
-	"github.com/go-chi/chi/v5"
 )
 
 func RegisterHTTPEndpoint(router *chi.Mux, cfg *config.Config) error {

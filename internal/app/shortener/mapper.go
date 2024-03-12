@@ -1,13 +1,15 @@
 package shortener
 
-import "github.com/AsakoKabe/go-yandex-shortener/internal/app/utils"
+import (
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/utils"
+)
 
 type URLMapper struct {
 	mapping        map[string]string
 	maxLenShortURL int
 }
 
-func NewURLMapper(maxLenShortURL int) URLShortener {
+func NewURLMapper(maxLenShortURL int) *URLMapper {
 	return &URLMapper{
 		mapping:        make(map[string]string),
 		maxLenShortURL: maxLenShortURL,
@@ -20,10 +22,10 @@ func (m *URLMapper) Add(url string) (string, error) {
 	return shortURL, nil
 }
 
-func (m *URLMapper) Get(shortURL string) (string, error) {
+func (m *URLMapper) Get(shortURL string) (string, bool) {
 	url, ok := m.mapping[shortURL]
 	if ok {
-		return url, nil
+		return url, true
 	}
-	return "", nil
+	return "", false
 }
