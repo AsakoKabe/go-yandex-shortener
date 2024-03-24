@@ -3,9 +3,8 @@ package server
 import (
 	"context"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
-	"github.com/go-chi/httplog/v2"
+	"go.uber.org/zap"
 	"log"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -25,12 +24,15 @@ func NewApp() *App {
 }
 
 func (a *App) Run(cfg *config.Config) error {
-	logger.Initialize(slog.LevelInfo)
+	err := logger.Initialize(zap.InfoLevel)
+	if err != nil {
+		return err
+	}
 
 	router := chi.NewRouter()
-	router.Use(httplog.RequestLogger(logger.Logger))
+	router.Use(logger.RequestLogger)
 
-	err := handlers.RegisterHTTPEndpoint(router, cfg)
+	err = handlers.RegisterHTTPEndpoint(router, cfg)
 	if err != nil {
 		log.Fatalf("Failed to register handlers: %+v", err)
 		return err
