@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
+	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 	"log"
 	"net/http"
@@ -30,7 +31,8 @@ func (a *App) Run(cfg *config.Config) error {
 	}
 
 	router := chi.NewRouter()
-	router.Use(logger.RequestLogger)
+	//router.Use(logger.RequestLogger)
+	router.Use(middleware.Logger)
 
 	err = handlers.RegisterHTTPEndpoint(router, cfg)
 	if err != nil {
