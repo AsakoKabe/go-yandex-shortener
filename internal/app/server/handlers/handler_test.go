@@ -33,7 +33,7 @@ func Test_createShortURL(t *testing.T) {
 				contentType: "text/plain",
 			},
 			body:      strings.NewReader("https://ya.ru"),
-			shortener: shortener.NewURLMapper(5),
+			shortener: shortener.NewURLMapper(5, "/tmp/short-url-db.json"),
 		},
 		{
 			name: "return status 400 for empty url",
@@ -42,7 +42,7 @@ func Test_createShortURL(t *testing.T) {
 				contentType: "",
 			},
 			body:      strings.NewReader(""),
-			shortener: shortener.NewURLMapper(5),
+			shortener: shortener.NewURLMapper(5, "/tmp/short-url-db.json"),
 		},
 	}
 	for _, test := range tests {
@@ -105,7 +105,7 @@ func setUpSimple() (map[string]string, *Handler) {
 		"https://ya.ru",
 		"https://example.com",
 	}
-	h := NewHandler(shortener.NewURLMapper(5), "http://localhost:80")
+	h := NewHandler(shortener.NewURLMapper(5, "/tmp/short-url-db.json"), "http://localhost:80")
 
 	for _, url := range urls {
 		request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(url))
@@ -138,7 +138,7 @@ func TestHandler_createShortURLJson(t *testing.T) {
 				contentType: "application/json",
 			},
 			body:      bytes.NewReader([]byte(`{"url":"https://yandex.ru"}`)),
-			shortener: shortener.NewURLMapper(5),
+			shortener: shortener.NewURLMapper(5, "/tmp/short-url-db.json"),
 		},
 		{
 			name: "return status 400 for empty url",
@@ -147,7 +147,7 @@ func TestHandler_createShortURLJson(t *testing.T) {
 				contentType: "",
 			},
 			body:      strings.NewReader(""),
-			shortener: shortener.NewURLMapper(5),
+			shortener: shortener.NewURLMapper(5, "/tmp/short-url-db.json"),
 		},
 	}
 	for _, test := range tests {
