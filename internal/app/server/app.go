@@ -2,17 +2,18 @@ package server
 
 import (
 	"context"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
+	"github.com/go-chi/httplog/v2"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-
 	"github.com/AsakoKabe/go-yandex-shortener/config"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/handlers"
+	"github.com/go-chi/chi/v5"
 )
 
 type App struct {
@@ -24,9 +25,10 @@ func NewApp() *App {
 }
 
 func (a *App) Run(cfg *config.Config) error {
-	router := chi.NewRouter()
+	logger.Initialize(slog.LevelInfo)
 
-	router.Use(middleware.Logger)
+	router := chi.NewRouter()
+	router.Use(httplog.RequestLogger(logger.Logger))
 
 	err := handlers.RegisterHTTPEndpoint(router, cfg)
 	if err != nil {
