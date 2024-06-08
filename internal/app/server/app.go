@@ -31,7 +31,6 @@ func (a *App) Run(cfg *config.Config) error {
 	}
 
 	router := chi.NewRouter()
-	//router.Use(logger.RequestLogger)
 	router.Use(middleware.Logger)
 	router.Use(gzipMiddleware)
 
