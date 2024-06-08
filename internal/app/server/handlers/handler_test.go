@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/utils"
@@ -32,7 +33,7 @@ func Test_createShortURL(t *testing.T) {
 				contentType: "text/plain",
 			},
 			body:      strings.NewReader("https://ya.ru"),
-			shortener: shortener.NewURLMapper(5),
+			shortener: shortener.NewURLMapper(5, "/tmp/short-url-db.json"),
 		},
 		{
 			name: "return status 400 for empty url",
@@ -41,7 +42,7 @@ func Test_createShortURL(t *testing.T) {
 				contentType: "",
 			},
 			body:      strings.NewReader(""),
-			shortener: shortener.NewURLMapper(5),
+			shortener: shortener.NewURLMapper(5, "/tmp/short-url-db.json"),
 		},
 	}
 	for _, test := range tests {
@@ -104,7 +105,7 @@ func setUpSimple() (map[string]string, *Handler) {
 		"https://ya.ru",
 		"https://example.com",
 	}
-	h := NewHandler(shortener.NewURLMapper(5), "http://localhost:80")
+	h := NewHandler(shortener.NewURLMapper(5, "/tmp/short-url-db.json"), "http://localhost:80")
 
 	for _, url := range urls {
 		request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(url))
@@ -117,4 +118,55 @@ func setUpSimple() (map[string]string, *Handler) {
 		urlMap[url] = short[(len(short) - 1)]
 	}
 	return urlMap, h
+}
+
+func TestHandler_createShortURLJson(t *testing.T) {
+	type want struct {
+		code        int
+		contentType string
+	}
+	tests := []struct {
+		name      string
+		want      want
+		body      io.Reader
+		shortener URLShortener
+	}{
+		{
+			name: "simple positive",
+			want: want{
+				code:        http.StatusCreated,
+				contentType: "application/json",
+			},
+			body:      bytes.NewReader([]byte(`{"url":"https://yandex.ru"}`)),
+			shortener: shortener.NewURLMapper(5, "/tmp/short-url-db.json"),
+		},
+		{
+			name: "return status 400 for empty url",
+			want: want{
+				code:        http.StatusBadRequest,
+				contentType: "",
+			},
+			body:      strings.NewReader(""),
+			shortener: shortener.NewURLMapper(5, "/tmp/short-url-db.json"),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/", test.body)
+			w := httptest.NewRecorder()
+			h := NewHandler(test.shortener, "http://localhost:80")
+
+			h.createShortURLJson(w, request)
+
+			res := w.Result()
+			defer res.Body.Close()
+			resBody, err := io.ReadAll(res.Body)
+			assert.Equal(t, test.want.code, res.StatusCode)
+			require.NoError(t, err)
+			if res.StatusCode != http.StatusBadRequest {
+				assert.NotEmpty(t, string(resBody))
+			}
+			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
+		})
+	}
 }

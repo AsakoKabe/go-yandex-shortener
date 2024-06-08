@@ -2,17 +2,18 @@ package server
 
 import (
 	"context"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
+	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-
 	"github.com/AsakoKabe/go-yandex-shortener/config"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/handlers"
+	"github.com/go-chi/chi/v5"
 )
 
 type App struct {
@@ -24,11 +25,16 @@ func NewApp() *App {
 }
 
 func (a *App) Run(cfg *config.Config) error {
+	err := logger.Initialize(zap.InfoLevel)
+	if err != nil {
+		return err
+	}
+
 	router := chi.NewRouter()
-
 	router.Use(middleware.Logger)
+	router.Use(gzipMiddleware)
 
-	err := handlers.RegisterHTTPEndpoint(router, cfg)
+	err = handlers.RegisterHTTPEndpoint(router, cfg)
 	if err != nil {
 		log.Fatalf("Failed to register handlers: %+v", err)
 		return err

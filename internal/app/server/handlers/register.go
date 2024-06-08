@@ -8,10 +8,11 @@ import (
 )
 
 func RegisterHTTPEndpoint(router *chi.Mux, cfg *config.Config) error {
-	h := NewHandler(shortener.NewURLMapper(5), cfg.PrefixURL)
+	h := NewHandler(shortener.NewURLMapper(5, cfg.FileStoragePath), cfg.PrefixURL)
 
 	router.Get("/{id}", h.getURL)
 	router.Post("/", h.createShortURL)
+	router.Post("/api/shorten", h.createShortURLJson)
 
 	return nil
 }

@@ -7,8 +7,9 @@ import (
 )
 
 type Config struct {
-	Addr      string `env:"SERVER_ADDRESS"`
-	PrefixURL string `env:"BASE_URL"`
+	Addr            string `env:"SERVER_ADDRESS"`
+	PrefixURL       string `env:"BASE_URL"`
+	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 }
 
 func LoadConfig() (*Config, error) {
