@@ -1,6 +1,6 @@
-package shortener
+package models
 
-type ShortURL struct {
+type URL struct {
 	ShortURL    string `json:"short_url,omitempty"`
 	OriginalURL string `json:"original_url,omitempty"`
 }

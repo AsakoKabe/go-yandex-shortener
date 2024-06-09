@@ -1,7 +1,9 @@
 package shortener
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener/models"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/utils"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 	"go.uber.org/zap"
@@ -10,15 +12,15 @@ import (
 	"strings"
 )
 
-type URLMapper struct {
-	mapping         map[string]ShortURL
+type FileURLMapper struct {
+	mapping         map[string]models.URL
 	maxLenShortURL  int
 	fileStoragePath string
 }
 
-func NewURLMapper(maxLenShortURL int, fileStoragePath string) *URLMapper {
-	mapper := &URLMapper{
-		mapping:         make(map[string]ShortURL),
+func NewFileURLMapper(maxLenShortURL int, fileStoragePath string) *FileURLMapper {
+	mapper := &FileURLMapper{
+		mapping:         make(map[string]models.URL),
 		maxLenShortURL:  maxLenShortURL,
 		fileStoragePath: fileStoragePath,
 	}
@@ -29,9 +31,9 @@ func NewURLMapper(maxLenShortURL int, fileStoragePath string) *URLMapper {
 	return mapper
 }
 
-func (m *URLMapper) Add(url string) (string, error) {
+func (m *FileURLMapper) Add(_ context.Context, url string) (string, error) {
 	shortURL := "/" + utils.RandStringRunes(m.maxLenShortURL)
-	su := ShortURL{
+	su := models.URL{
 		ShortURL:    shortURL,
 		OriginalURL: url,
 	}
@@ -43,7 +45,7 @@ func (m *URLMapper) Add(url string) (string, error) {
 	return shortURL, nil
 }
 
-func (m *URLMapper) Get(shortURL string) (string, bool) {
+func (m *FileURLMapper) Get(_ context.Context, shortURL string) (string, bool) {
 	su, ok := m.mapping[shortURL]
 	if ok {
 		return su.OriginalURL, true
@@ -51,7 +53,7 @@ func (m *URLMapper) Get(shortURL string) (string, bool) {
 	return "", false
 }
 
-func (m *URLMapper) loadFromFile() error {
+func (m *FileURLMapper) loadFromFile() error {
 	data, err := os.ReadFile(m.fileStoragePath)
 	if os.IsNotExist(err) {
 		return nil
@@ -67,7 +69,7 @@ func (m *URLMapper) loadFromFile() error {
 
 	dec := json.NewDecoder(strings.NewReader(string(data)))
 	for {
-		var su ShortURL
+		var su models.URL
 
 		err = dec.Decode(&su)
 		if err == io.EOF {
@@ -83,7 +85,7 @@ func (m *URLMapper) loadFromFile() error {
 	return nil
 }
 
-func (m *URLMapper) saveToFile(su ShortURL) error {
+func (m *FileURLMapper) saveToFile(su models.URL) error {
 	content, _ := json.Marshal(su)
 
 	f, err := os.OpenFile(m.fileStoragePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)

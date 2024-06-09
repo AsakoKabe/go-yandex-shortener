@@ -37,7 +37,7 @@ func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	shortURL, err := h.urlShortener.Add(url)
+	shortURL, err := h.urlShortener.Add(r.Context(), url)
 	if err != nil {
 		logger.Log.Error("error to create short url", zap.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)
@@ -62,7 +62,7 @@ func (h *Handler) getURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, ok := h.urlShortener.Get(shortURL)
+	url, ok := h.urlShortener.Get(r.Context(), shortURL)
 	if !ok {
 		logger.Log.Error("error to get url")
 		w.WriteHeader(http.StatusBadRequest)
@@ -91,7 +91,7 @@ func (h *Handler) createShortURLJson(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	shortURL, err := h.urlShortener.Add(sr.URL)
+	shortURL, err := h.urlShortener.Add(r.Context(), sr.URL)
 	if err != nil {
 		logger.Log.Error("error to create short url", zap.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)

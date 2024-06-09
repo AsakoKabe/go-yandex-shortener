@@ -9,10 +9,16 @@ import (
 )
 
 func RegisterHTTPEndpoint(router *chi.Mux, services *service.Services, cfg *config.Config) error {
-	pingHandler := NewPingHandler(services.PingService)
-	router.Get("/ping", pingHandler.healthDB)
+	var mapper URLShortener
+	if cfg.DatabaseDSN != "" {
+		pingHandler := NewPingHandler(services.PingService)
+		router.Get("/ping", pingHandler.healthDB)
+		mapper = shortener.NewDBUrlMapper(5, services.URLService)
+	} else {
+		mapper = shortener.NewFileURLMapper(5, cfg.FileStoragePath)
+	}
 
-	h := NewHandler(shortener.NewURLMapper(5, cfg.FileStoragePath), cfg.PrefixURL)
+	h := NewHandler(mapper, cfg.PrefixURL)
 	router.Get("/{id}", h.getURL)
 	router.Post("/", h.createShortURL)
 	router.Post("/api/shorten", h.createShortURLJson)
