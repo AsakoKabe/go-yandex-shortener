@@ -15,6 +15,7 @@ type URLService struct {
 }
 
 func NewURLService(db *sql.DB) *URLService {
+	createTable(context.Background(), db)
 	return &URLService{db: db}
 }
 
@@ -47,7 +48,7 @@ func (u *URLService) GetURL(ctx context.Context, shortURL string) (*models.URL, 
 	}
 
 	var url models.URL
-	if err := rows.Scan(&url.ShortURL, &url.OriginalURL); err != nil {
+	if err := rows.Scan(&url.ID, &url.ShortURL, &url.OriginalURL); err != nil {
 		logger.Log.Error("error parse request from db", zap.String("err", err.Error()))
 		return nil, err
 	}
@@ -56,4 +57,18 @@ func (u *URLService) GetURL(ctx context.Context, shortURL string) (*models.URL, 
 		return nil, err
 	}
 	return &url, nil
+}
+
+func createTable(ctx context.Context, db *sql.DB) {
+	query := `CREATE TABLE IF NOT EXISTS url
+	(
+		id           serial primary key,
+		short_url    varchar(450) NOT NULL,
+		original_url varchar(450) NOT NULL
+	)`
+
+	_, err := db.ExecContext(ctx, query)
+	if err != nil {
+		panic("Error to create table")
+	}
 }
