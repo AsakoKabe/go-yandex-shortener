@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/AsakoKabe/go-yandex-shortener/config"
@@ -12,8 +13,9 @@ func main() {
 	if err != nil {
 		return
 	}
-
-	app := server.NewApp()
+	fmt.Println(cfg.DatabaseDSN)
+	app := server.NewApp(cfg)
+	defer app.CloseDBPool()
 
 	if err := app.Run(cfg); err != nil {
 		log.Fatalf("%s", err.Error())

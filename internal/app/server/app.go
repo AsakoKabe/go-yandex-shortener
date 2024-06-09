@@ -2,6 +2,9 @@ package server
 
 import (
 	"context"
+	"database/sql"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/connection"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
@@ -18,10 +21,20 @@ import (
 
 type App struct {
 	httpServer *http.Server
+	dbPool     *sql.DB
+	services   *service.Services
 }
 
-func NewApp() *App {
-	return &App{}
+func NewApp(cfg *config.Config) *App {
+	pool, err := connection.NewDBPool(cfg.DatabaseDSN)
+	if err != nil {
+		log.Fatalf("%s", err.Error())
+	}
+
+	return &App{
+		dbPool:   pool,
+		services: service.NewPostgresServices(pool),
+	}
 }
 
 func (a *App) Run(cfg *config.Config) error {
@@ -32,9 +45,9 @@ func (a *App) Run(cfg *config.Config) error {
 
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
-	router.Use(gzipMiddleware)
+	//router.Use(gzipMiddleware)
 
-	err = handlers.RegisterHTTPEndpoint(router, cfg)
+	err = handlers.RegisterHTTPEndpoint(router, a.services, cfg)
 	if err != nil {
 		log.Fatalf("Failed to register handlers: %+v", err)
 		return err
@@ -67,4 +80,11 @@ func (a *App) Run(cfg *config.Config) error {
 
 	return a.httpServer.Shutdown(ctx)
 
+}
+
+func (a *App) CloseDBPool() {
+	err := a.dbPool.Close()
+	if err != nil {
+		return
+	}
 }
