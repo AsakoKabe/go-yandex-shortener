@@ -26,6 +26,9 @@ type App struct {
 }
 
 func NewApp(cfg *config.Config) *App {
+	if cfg.DatabaseDSN == "" {
+		return &App{}
+	}
 	pool, err := connection.NewDBPool(cfg.DatabaseDSN)
 	if err != nil {
 		log.Fatalf("%s", err.Error())
