@@ -45,7 +45,7 @@ func (a *App) Run(cfg *config.Config) error {
 
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
-	//router.Use(gzipMiddleware)
+	router.Use(gzipMiddleware)
 
 	err = handlers.RegisterHTTPEndpoint(router, a.services, cfg)
 	if err != nil {
