@@ -42,10 +42,8 @@ func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 	}
 	shortURL, err := h.urlShortener.Add(r.Context(), url)
 	if errors.Is(err, errs.ErrConflictOriginalURL) {
-		logger.Log.Error("original url already exist", zap.String("err", err.Error()))
+		logger.Log.Info("original url already exist", zap.String("err", err.Error()))
 		w.WriteHeader(http.StatusConflict)
-		w.Write([]byte(h.prefixURL + shortURL))
-		return
 	} else if err != nil {
 		logger.Log.Error("error to create short url", zap.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)
@@ -99,6 +97,8 @@ func (h *Handler) createShortURLJson(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+
 	shortURL, err := h.urlShortener.Add(r.Context(), sr.URL)
 	if errors.Is(err, errs.ErrConflictOriginalURL) {
 		logger.Log.Info("original url already exist", zap.String("err", err.Error()))
@@ -110,8 +110,6 @@ func (h *Handler) createShortURLJson(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.WriteHeader(http.StatusCreated)
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 
 	response := ShortenerResponse{Result: h.prefixURL + shortURL}
 
