@@ -2,11 +2,14 @@ package handlers
 
 import (
 	"encoding/json"
-	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
-	"go.uber.org/zap"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
+
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/errs"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
 
 type Handler struct {
@@ -38,7 +41,12 @@ func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shortURL, err := h.urlShortener.Add(r.Context(), url)
-	if err != nil {
+	if errors.Is(err, errs.ErrConflictOriginalURL) {
+		logger.Log.Error("original url already exist", zap.String("err", err.Error()))
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(h.prefixURL + shortURL))
+		return
+	} else if err != nil {
 		logger.Log.Error("error to create short url", zap.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -92,21 +100,25 @@ func (h *Handler) createShortURLJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shortURL, err := h.urlShortener.Add(r.Context(), sr.URL)
-	if err != nil {
+	if errors.Is(err, errs.ErrConflictOriginalURL) {
+		logger.Log.Info("original url already exist", zap.String("err", err.Error()))
+		w.WriteHeader(http.StatusConflict)
+	} else if err != nil {
 		logger.Log.Error("error to create short url", zap.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)
 		return
+	} else {
+		w.WriteHeader(http.StatusCreated)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
 
-	response := ShortenResponse{Result: h.prefixURL + shortURL}
+	response := ShortenerResponse{Result: h.prefixURL + shortURL}
+
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		logger.Log.Error("error to create response", zap.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)
-		return
 	}
 }
 

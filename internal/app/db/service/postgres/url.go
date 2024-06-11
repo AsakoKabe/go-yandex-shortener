@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service/errs"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener/models"
 
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
@@ -19,22 +20,34 @@ func NewURLService(db *sql.DB) *URLService {
 	return &URLService{db: db}
 }
 
-func (u *URLService) SaveURL(ctx context.Context, url models.URL) error {
-	query := `INSERT INTO url (short_url, original_url) VALUES ($1, $2)`
-
-	_, err := u.db.ExecContext(ctx, query, url.ShortURL, url.OriginalURL)
+func (u *URLService) SaveURL(ctx context.Context, url models.URL) (string, error) {
+	existedURL, err := u.getURLByQuery(ctx, "select * from url WHERE original_url = $1", url.OriginalURL)
 	if err != nil {
-		return fmt.Errorf("unable to insert row: %w", err)
+		return "", err
+	}
+	if existedURL != nil {
+		return existedURL.ShortURL, errs.ErrOriginalURLAlreadyExist
 	}
 
-	return nil
+	query := `INSERT INTO url (short_url, original_url) VALUES ($1, $2)`
+
+	_, err = u.db.ExecContext(ctx, query, url.ShortURL, url.OriginalURL)
+	if err != nil {
+		return "", fmt.Errorf("unable to insert row: %w", err)
+	}
+
+	return "", nil
 }
 
 func (u *URLService) GetURL(ctx context.Context, shortURL string) (*models.URL, error) {
+	return u.getURLByQuery(ctx, "select * from url WHERE short_url = $1", shortURL)
+}
+
+func (u *URLService) getURLByQuery(ctx context.Context, query string, args ...any) (*models.URL, error) {
 	rows, err := u.db.QueryContext(
 		ctx,
-		"select * from url WHERE short_url = $1",
-		shortURL,
+		query,
+		args...,
 	)
 	if err != nil {
 		logger.Log.Error("error select request", zap.String("err", err.Error()))

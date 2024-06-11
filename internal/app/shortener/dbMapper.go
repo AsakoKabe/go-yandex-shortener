@@ -2,11 +2,16 @@ package shortener
 
 import (
 	"context"
+	"errors"
+
+	"go.uber.org/zap"
+
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service"
+	dbErrs "github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service/errs"
+	handlerErrs "github.com/AsakoKabe/go-yandex-shortener/internal/app/server/errs"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener/models"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/utils"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
-	"go.uber.org/zap"
 )
 
 type DBUrlMapper struct {
@@ -24,7 +29,10 @@ func (m *DBUrlMapper) Add(ctx context.Context, originalURL string) (string, erro
 		ShortURL:    shortURL,
 		OriginalURL: originalURL,
 	}
-	err := m.urlService.SaveURL(ctx, url)
+	existedShortURL, err := m.urlService.SaveURL(ctx, url)
+	if errors.Is(err, dbErrs.ErrOriginalURLAlreadyExist) {
+		return existedShortURL, handlerErrs.ErrConflictOriginalURL
+	}
 	if err != nil {
 		return "", err
 	}
