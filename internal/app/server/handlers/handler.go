@@ -110,6 +110,41 @@ func (h *Handler) createShortURLJson(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handler) createFromBatch(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var urlBatch []ShortenRequestBatch
+	err := json.NewDecoder(r.Body).Decode(&urlBatch)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var shortURLBatch []ShortenResponseBatch
+	for _, url := range urlBatch {
+		shortURL, err := h.urlShortener.Add(r.Context(), url.OriginalURL)
+		if err != nil {
+			logger.Log.Error("error to create short url", zap.String("err", err.Error()))
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		shortURLBatch = append(shortURLBatch, ShortenResponseBatch{
+			ShortURL:      h.prefixURL + shortURL,
+			CorrelationID: url.CorrelationID,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	err = json.NewEncoder(w).Encode(shortURLBatch)
+	if err != nil {
+		logger.Log.Error("error to create response", zap.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+}
+
 func urlNotEmpty(url string) bool {
 	return url == ""
 }
