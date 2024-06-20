@@ -48,8 +48,8 @@ func (u *URLService) SaveBatchURL(ctx context.Context, batchURL []models.URL) er
 	var placeholders []string
 	for index, url := range batchURL {
 		placeholders = append(placeholders, fmt.Sprintf("($%d,$%d)",
-			index*3+1,
-			index*3+2))
+			index*2+1,
+			index*2+2))
 		vals = append(vals, url.ShortURL, url.OriginalURL)
 	}
 
