@@ -130,17 +130,22 @@ func (h *Handler) createFromBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var originalURLs []string
+	for _, originalURL := range urlBatch {
+		originalURLs = append(originalURLs, originalURL.OriginalURL)
+	}
+
+	shortURLs, err := h.urlShortener.AddBatch(r.Context(), originalURLs)
+	if err != nil {
+		logger.Log.Error("error to create short url", zap.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	var shortURLBatch []ShortenResponseBatch
-	for _, url := range urlBatch {
-		shortURL, err := h.urlShortener.Add(r.Context(), url.OriginalURL)
-		if err != nil {
-			logger.Log.Error("error to create short url", zap.String("err", err.Error()))
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
+	for i, shortURL := range *shortURLs {
 		shortURLBatch = append(shortURLBatch, ShortenResponseBatch{
 			ShortURL:      h.prefixURL + shortURL,
-			CorrelationID: url.CorrelationID,
+			CorrelationID: urlBatch[i].CorrelationID,
 		})
 	}
 

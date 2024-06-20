@@ -10,9 +10,13 @@ type Services struct {
 	URLService  URLService
 }
 
-func NewPostgresServices(db *sql.DB) *Services {
+func NewPostgresServices(db *sql.DB) (*Services, error) {
+	urlService, err := postgres.NewURLService(db)
+	if err != nil {
+		return nil, err
+	}
 	return &Services{
 		PingService: postgres.NewPingService(db),
-		URLService:  postgres.NewURLService(db),
-	}
+		URLService:  urlService,
+	}, nil
 }

@@ -10,17 +10,19 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 )
 
 type FileURLMapper struct {
-	mapping         map[string]models.URL
+	mapping         sync.Map
 	maxLenShortURL  int
 	fileStoragePath string
+	fileMutex       sync.Mutex
 }
 
 func NewFileURLMapper(maxLenShortURL int, fileStoragePath string) *FileURLMapper {
 	mapper := &FileURLMapper{
-		mapping:         make(map[string]models.URL),
+		//mapping:         make(map[string]models.URL),
 		maxLenShortURL:  maxLenShortURL,
 		fileStoragePath: fileStoragePath,
 	}
@@ -37,7 +39,8 @@ func (m *FileURLMapper) Add(_ context.Context, url string) (string, error) {
 		ShortURL:    shortURL,
 		OriginalURL: url,
 	}
-	m.mapping[shortURL] = su
+	//m.mapping[shortURL] = su
+	m.mapping.Store(shortURL, su)
 	err := m.saveToFile(su)
 	if err != nil {
 		return "", err
@@ -45,10 +48,32 @@ func (m *FileURLMapper) Add(_ context.Context, url string) (string, error) {
 	return shortURL, nil
 }
 
+func (m *FileURLMapper) AddBatch(_ context.Context, originalURLs []string) (*[]string, error) {
+	var shortURLs []string
+	for _, originalURL := range originalURLs {
+		shortURL := "/" + utils.RandStringRunes(m.maxLenShortURL)
+		su := models.URL{
+			ShortURL:    shortURL,
+			OriginalURL: originalURL,
+		}
+		//m.mapping[shortURL] = su
+		m.mapping.Store(shortURL, su)
+		shortURLs = append(shortURLs, shortURL)
+		err := m.saveToFile(su)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &shortURLs, nil
+}
+
 func (m *FileURLMapper) Get(_ context.Context, shortURL string) (string, bool) {
-	su, ok := m.mapping[shortURL]
+	//su, ok := m.mapping[shortURL]
+	su, ok := m.mapping.Load(shortURL)
+
 	if ok {
-		return su.OriginalURL, true
+		return su.(models.URL).OriginalURL, true
 	}
 	return "", false
 }
@@ -79,13 +104,17 @@ func (m *FileURLMapper) loadFromFile() error {
 			logger.Log.Error("error to parse json", zap.String("err", err.Error()))
 			return err
 		}
-		m.mapping[su.ShortURL] = su
+		//m.mapping[su.ShortURL] = su
+		m.mapping.Store(su.ShortURL, su)
 	}
 
 	return nil
 }
 
 func (m *FileURLMapper) saveToFile(su models.URL) error {
+	m.fileMutex.Lock()
+	defer m.fileMutex.Unlock()
+
 	content, _ := json.Marshal(su)
 
 	f, err := os.OpenFile(m.fileStoragePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)

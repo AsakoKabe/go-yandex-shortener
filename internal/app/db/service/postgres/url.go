@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service/errs"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener/models"
+	"strings"
 
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 	"go.uber.org/zap"
@@ -15,9 +16,12 @@ type URLService struct {
 	db *sql.DB
 }
 
-func NewURLService(db *sql.DB) *URLService {
-	createTable(context.Background(), db)
-	return &URLService{db: db}
+func NewURLService(db *sql.DB) (*URLService, error) {
+	err := createTable(context.Background(), db)
+	if err != nil {
+		return nil, err
+	}
+	return &URLService{db: db}, nil
 }
 
 func (u *URLService) SaveURL(ctx context.Context, url models.URL) (string, error) {
@@ -37,6 +41,27 @@ func (u *URLService) SaveURL(ctx context.Context, url models.URL) (string, error
 	}
 
 	return "", nil
+}
+
+func (u *URLService) SaveBatchURL(ctx context.Context, batchURL []models.URL) error {
+	var vals []any
+	var placeholders []string
+	for index, url := range batchURL {
+		placeholders = append(placeholders, fmt.Sprintf("($%d,$%d)",
+			index*3+1,
+			index*3+2))
+		vals = append(vals, url.ShortURL, url.OriginalURL)
+	}
+
+	query := fmt.Sprintf("INSERT INTO url (short_url, original_url) VALUES %s", strings.Join(placeholders, ","))
+
+	_, err := u.db.ExecContext(ctx, query, vals...)
+	if err != nil {
+		return fmt.Errorf("unable to insert row: %w", err)
+	}
+
+	return nil
+
 }
 
 func (u *URLService) GetURL(ctx context.Context, shortURL string) (*models.URL, error) {
@@ -72,16 +97,14 @@ func (u *URLService) getURLByQuery(ctx context.Context, query string, args ...an
 	return &url, nil
 }
 
-func createTable(ctx context.Context, db *sql.DB) {
+func createTable(ctx context.Context, db *sql.DB) error {
 	query := `CREATE TABLE IF NOT EXISTS url
 	(
 		id           serial primary key,
 		short_url    varchar(450) NOT NULL,
-		original_url varchar(450) NOT NULL
+		original_url varchar(450) NOT NULL UNIQUE
 	)`
 
 	_, err := db.ExecContext(ctx, query)
-	if err != nil {
-		panic("Error to create table")
-	}
+	return err
 }

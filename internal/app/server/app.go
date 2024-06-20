@@ -3,9 +3,8 @@ package server
 import (
 	"context"
 	"database/sql"
-	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/connection"
-	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service"
-	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/errs"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 	"log"
@@ -15,8 +14,10 @@ import (
 	"time"
 
 	"github.com/AsakoKabe/go-yandex-shortener/config"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/connection"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/handlers"
-	"github.com/go-chi/chi/v5"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
 
 type App struct {
@@ -25,19 +26,26 @@ type App struct {
 	services   *service.Services
 }
 
-func NewApp(cfg *config.Config) *App {
+func NewApp(cfg *config.Config) (*App, error) {
 	if cfg.DatabaseDSN == "" {
-		return &App{}
+		return &App{}, nil
 	}
 	pool, err := connection.NewDBPool(cfg.DatabaseDSN)
 	if err != nil {
-		log.Fatalf("%s", err.Error())
+		logger.Log.Error("error to create db pool", zap.String("err", err.Error()))
+		return nil, errs.ErrCreateDBPoll
+	}
+
+	pgServices, err := service.NewPostgresServices(pool)
+	if err != nil {
+		logger.Log.Error("error to create service", zap.String("err", err.Error()))
+		return nil, errs.ErrCreateServices
 	}
 
 	return &App{
 		dbPool:   pool,
-		services: service.NewPostgresServices(pool),
-	}
+		services: pgServices,
+	}, nil
 }
 
 func (a *App) Run(cfg *config.Config) error {
@@ -52,8 +60,7 @@ func (a *App) Run(cfg *config.Config) error {
 
 	err = handlers.RegisterHTTPEndpoint(router, a.services, cfg)
 	if err != nil {
-		log.Fatalf("Failed to register handlers: %+v", err)
-		return err
+		return errs.ErrRegisterEndpoints
 	}
 
 	a.httpServer = &http.Server{
@@ -86,6 +93,9 @@ func (a *App) Run(cfg *config.Config) error {
 }
 
 func (a *App) CloseDBPool() {
+	if a.dbPool == nil {
+		return
+	}
 	err := a.dbPool.Close()
 	if err != nil {
 		return

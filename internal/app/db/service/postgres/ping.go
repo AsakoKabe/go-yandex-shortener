@@ -14,10 +14,5 @@ func NewPingService(db *sql.DB) *PingService {
 }
 
 func (p *PingService) PingDB(ctx context.Context) error {
-	rows, err := p.db.QueryContext(ctx, "SELECT 1;")
-	defer func() {
-		_ = rows.Close()
-		_ = rows.Err()
-	}()
-	return err
+	return p.db.PingContext(ctx)
 }

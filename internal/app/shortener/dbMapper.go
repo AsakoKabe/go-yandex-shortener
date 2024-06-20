@@ -40,6 +40,28 @@ func (m *DBUrlMapper) Add(ctx context.Context, originalURL string) (string, erro
 	return shortURL, nil
 }
 
+func (m *DBUrlMapper) AddBatch(ctx context.Context, originalURLs []string) (*[]string, error) {
+	var batchURL []models.URL
+	var shortURLs []string
+
+	for _, originalURL := range originalURLs {
+		shortURL := "/" + utils.RandStringRunes(m.maxLenShortURL)
+		batchURL = append(batchURL, models.URL{
+			ShortURL:    shortURL,
+			OriginalURL: originalURL,
+		})
+		shortURLs = append(shortURLs, shortURL)
+	}
+
+	err := m.urlService.SaveBatchURL(ctx, batchURL)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &shortURLs, nil
+}
+
 func (m *DBUrlMapper) Get(ctx context.Context, shortURL string) (string, bool) {
 	su, err := m.urlService.GetURL(ctx, shortURL)
 	if err != nil {
