@@ -22,7 +22,6 @@ type FileURLMapper struct {
 
 func NewFileURLMapper(maxLenShortURL int, fileStoragePath string) *FileURLMapper {
 	mapper := &FileURLMapper{
-		//mapping:         make(map[string]models.URL),
 		maxLenShortURL:  maxLenShortURL,
 		fileStoragePath: fileStoragePath,
 	}
@@ -34,12 +33,11 @@ func NewFileURLMapper(maxLenShortURL int, fileStoragePath string) *FileURLMapper
 }
 
 func (m *FileURLMapper) Add(_ context.Context, url string) (string, error) {
-	shortURL := "/" + utils.RandStringRunes(m.maxLenShortURL)
+	shortURL := utils.RandStringRunes(m.maxLenShortURL)
 	su := models.URL{
 		ShortURL:    shortURL,
 		OriginalURL: url,
 	}
-	//m.mapping[shortURL] = su
 	m.mapping.Store(shortURL, su)
 	err := m.saveToFile(su)
 	if err != nil {
@@ -51,12 +49,11 @@ func (m *FileURLMapper) Add(_ context.Context, url string) (string, error) {
 func (m *FileURLMapper) AddBatch(_ context.Context, originalURLs []string) (*[]string, error) {
 	var shortURLs []string
 	for _, originalURL := range originalURLs {
-		shortURL := "/" + utils.RandStringRunes(m.maxLenShortURL)
+		shortURL := utils.RandStringRunes(m.maxLenShortURL)
 		su := models.URL{
 			ShortURL:    shortURL,
 			OriginalURL: originalURL,
 		}
-		//m.mapping[shortURL] = su
 		m.mapping.Store(shortURL, su)
 		shortURLs = append(shortURLs, shortURL)
 		err := m.saveToFile(su)
@@ -69,7 +66,6 @@ func (m *FileURLMapper) AddBatch(_ context.Context, originalURLs []string) (*[]s
 }
 
 func (m *FileURLMapper) Get(_ context.Context, shortURL string) (string, bool) {
-	//su, ok := m.mapping[shortURL]
 	su, ok := m.mapping.Load(shortURL)
 
 	if ok {
@@ -104,7 +100,6 @@ func (m *FileURLMapper) loadFromFile() error {
 			logger.Log.Error("error to parse json", zap.String("err", err.Error()))
 			return err
 		}
-		//m.mapping[su.ShortURL] = su
 		m.mapping.Store(su.ShortURL, su)
 	}
 

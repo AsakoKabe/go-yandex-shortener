@@ -23,7 +23,7 @@ func NewHandler(
 ) *Handler {
 	return &Handler{
 		urlShortener: urlShortener,
-		prefixURL:    prefixURL,
+		prefixURL:    prefixURL + "/",
 	}
 }
 
@@ -36,7 +36,7 @@ func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if h.emptyURL(url) {
+	if isURLEmpty(url) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -55,14 +55,10 @@ func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(h.prefixURL + shortURL))
 }
 
-func (h *Handler) emptyURL(url string) bool {
-	return url == ""
-}
-
 func (h *Handler) getURL(w http.ResponseWriter, r *http.Request) {
-	shortURL := "/" + chi.URLParam(r, "id")
+	shortURL := chi.URLParam(r, "id")
 
-	if urlNotEmpty(shortURL) {
+	if isURLEmpty(shortURL) {
 		logger.Log.Error("shortURL not found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -74,7 +70,7 @@ func (h *Handler) getURL(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if urlNotEmpty(url) {
+	if isURLEmpty(url) {
 		logger.Log.Error("URL not found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -93,7 +89,7 @@ func (h *Handler) createShortURLJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.emptyURL(sr.URL) {
+	if isURLEmpty(sr.URL) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -160,6 +156,6 @@ func (h *Handler) createFromBatch(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func urlNotEmpty(url string) bool {
+func isURLEmpty(url string) bool {
 	return url == ""
 }

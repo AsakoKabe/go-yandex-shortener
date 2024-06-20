@@ -24,7 +24,7 @@ func NewDBUrlMapper(maxLenShortURL int, urlService service.URLService) *DBUrlMap
 }
 
 func (m *DBUrlMapper) Add(ctx context.Context, originalURL string) (string, error) {
-	shortURL := "/" + utils.RandStringRunes(m.maxLenShortURL)
+	shortURL := utils.RandStringRunes(m.maxLenShortURL)
 	url := models.URL{
 		ShortURL:    shortURL,
 		OriginalURL: originalURL,
@@ -45,7 +45,7 @@ func (m *DBUrlMapper) AddBatch(ctx context.Context, originalURLs []string) (*[]s
 	var shortURLs []string
 
 	for _, originalURL := range originalURLs {
-		shortURL := "/" + utils.RandStringRunes(m.maxLenShortURL)
+		shortURL := utils.RandStringRunes(m.maxLenShortURL)
 		batchURL = append(batchURL, models.URL{
 			ShortURL:    shortURL,
 			OriginalURL: originalURL,
