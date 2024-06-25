@@ -103,8 +103,8 @@ func (u *URLService) getURLsByQuery(ctx context.Context, query string, args ...a
 
 func (u *URLService) parseRow(rows *sql.Rows, nameTasks *[]models.URL) error {
 	var url models.URL
-	if err := rows.Scan(&url.ID, &url.UserID, &url.ShortURL, &url.OriginalURL); err != nil {
-		logger.Log.Error("error parse request from db", zap.String("err", err.Error()))
+	if err := rows.Scan(&url.ID, &url.UserID, &url.ShortURL, &url.OriginalURL, &url.DeletedFlag); err != nil {
+		logger.Log.Error("error parse urls from db", zap.String("err", err.Error()))
 		return err
 	}
 	*nameTasks = append(*nameTasks, url)
@@ -124,13 +124,37 @@ func (u *URLService) GetURLsByUserID(ctx context.Context, userID string) (*[]mod
 	return u.getURLsByQuery(ctx, "select * from url WHERE user_id = $1", userID)
 }
 
+func (u *URLService) DeleteShortURLs(ctx context.Context, shortURLs []string, userID string) error {
+	params := make([]string, 0, len(shortURLs))
+	var vals []any
+
+	for i := range shortURLs {
+		params = append(params, fmt.Sprintf("$%d", i+1))
+		vals = append(vals, shortURLs[i])
+	}
+
+	query := fmt.Sprintf(
+		"UPDATE url SET is_deleted = true WHERE user_id = '%s' AND short_url IN (%s)",
+		userID,
+		strings.Join(params, ", "),
+	)
+
+	_, err := u.db.ExecContext(ctx, query, vals...)
+	if err != nil {
+		return fmt.Errorf("unable to set deleted url: %w", err)
+	}
+
+	return nil
+}
+
 func createTable(ctx context.Context, db *sql.DB) error {
 	query := `CREATE TABLE IF NOT EXISTS url
 	(
 		id           serial primary key,
 		user_id 	 uuid,
 		short_url    varchar(450) NOT NULL,
-		original_url varchar(450) NOT NULL UNIQUE
+		original_url varchar(450) NOT NULL UNIQUE,
+		is_deleted 	 bool DEFAULT false
 	)`
 
 	_, err := db.ExecContext(ctx, query)

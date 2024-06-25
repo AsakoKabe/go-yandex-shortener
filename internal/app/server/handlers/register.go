@@ -24,6 +24,7 @@ func RegisterHTTPEndpoint(router *chi.Mux, services *service.Services, cfg *conf
 	router.Post("/api/shorten", h.createShortURLJson)
 	router.Post("/api/shorten/batch", h.createFromBatch)
 	router.Get("/api/user/urls", h.getURLsByUser)
+	router.Delete("/api/user/urls", h.deleteShorURLs)
 
 	return nil
 }

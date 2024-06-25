@@ -5,4 +5,5 @@ type URL struct {
 	UserID      string
 	ShortURL    string `json:"short_url,omitempty"`
 	OriginalURL string `json:"original_url,omitempty"`
+	DeletedFlag bool
 }
