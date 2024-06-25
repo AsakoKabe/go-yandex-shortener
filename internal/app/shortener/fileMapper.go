@@ -3,21 +3,24 @@ package shortener
 import (
 	"context"
 	"encoding/json"
-	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener/models"
-	"github.com/AsakoKabe/go-yandex-shortener/internal/app/utils"
-	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
-	"go.uber.org/zap"
 	"io"
 	"os"
 	"strings"
 	"sync"
+
+	"go.uber.org/zap"
+
+	contextUtils "github.com/AsakoKabe/go-yandex-shortener/internal/app/context"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener/models"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/utils"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
 
 type FileURLMapper struct {
-	mapping         sync.Map
-	maxLenShortURL  int
-	fileStoragePath string
-	fileMutex       sync.Mutex
+	mappingByShortURL sync.Map
+	maxLenShortURL    int
+	fileStoragePath   string
+	fileMutex         sync.Mutex
 }
 
 func NewFileURLMapper(maxLenShortURL int, fileStoragePath string) *FileURLMapper {
@@ -32,13 +35,15 @@ func NewFileURLMapper(maxLenShortURL int, fileStoragePath string) *FileURLMapper
 	return mapper
 }
 
-func (m *FileURLMapper) Add(_ context.Context, url string) (string, error) {
+func (m *FileURLMapper) Add(ctx context.Context, url string) (string, error) {
 	shortURL := utils.RandStringRunes(m.maxLenShortURL)
+	userID := contextUtils.GetUserID(ctx)
 	su := models.URL{
 		ShortURL:    shortURL,
 		OriginalURL: url,
+		UserID:      userID,
 	}
-	m.mapping.Store(shortURL, su)
+	m.mappingByShortURL.Store(shortURL, su)
 	err := m.saveToFile(su)
 	if err != nil {
 		return "", err
@@ -46,15 +51,17 @@ func (m *FileURLMapper) Add(_ context.Context, url string) (string, error) {
 	return shortURL, nil
 }
 
-func (m *FileURLMapper) AddBatch(_ context.Context, originalURLs []string) (*[]string, error) {
+func (m *FileURLMapper) AddBatch(ctx context.Context, originalURLs []string) (*[]string, error) {
 	var shortURLs []string
 	for _, originalURL := range originalURLs {
 		shortURL := utils.RandStringRunes(m.maxLenShortURL)
+		userID := contextUtils.GetUserID(ctx)
 		su := models.URL{
 			ShortURL:    shortURL,
 			OriginalURL: originalURL,
+			UserID:      userID,
 		}
-		m.mapping.Store(shortURL, su)
+		m.mappingByShortURL.Store(shortURL, su)
 		shortURLs = append(shortURLs, shortURL)
 		err := m.saveToFile(su)
 		if err != nil {
@@ -66,7 +73,7 @@ func (m *FileURLMapper) AddBatch(_ context.Context, originalURLs []string) (*[]s
 }
 
 func (m *FileURLMapper) Get(_ context.Context, shortURL string) (string, bool) {
-	su, ok := m.mapping.Load(shortURL)
+	su, ok := m.mappingByShortURL.Load(shortURL)
 
 	if ok {
 		return su.(models.URL).OriginalURL, true
@@ -100,7 +107,7 @@ func (m *FileURLMapper) loadFromFile() error {
 			logger.Log.Error("error to parse json", zap.String("err", err.Error()))
 			return err
 		}
-		m.mapping.Store(su.ShortURL, su)
+		m.mappingByShortURL.Store(su.ShortURL, su)
 	}
 
 	return nil
@@ -132,4 +139,19 @@ func (m *FileURLMapper) saveToFile(su models.URL) error {
 		return err
 	}
 	return nil
+}
+
+func (m *FileURLMapper) GetByUserID(ctx context.Context) (*[]models.URL, error) {
+	var urls []models.URL
+	userID := contextUtils.GetUserID(ctx)
+
+	m.mappingByShortURL.Range(func(key, value interface{}) bool {
+		url := value.(models.URL)
+		if url.UserID == userID {
+			urls = append(urls, url)
+		}
+		return true
+	})
+
+	return &urls, nil
 }

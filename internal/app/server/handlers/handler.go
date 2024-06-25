@@ -3,22 +3,25 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/errs"
+	middlewareUtils "github.com/AsakoKabe/go-yandex-shortener/internal/app/server/middleware"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
 
 type Handler struct {
-	urlShortener URLShortener
+	urlShortener shortener.URLShortener
 	prefixURL    string
 }
 
 func NewHandler(
-	urlShortener URLShortener,
+	urlShortener shortener.URLShortener,
 	prefixURL string,
 ) *Handler {
 	return &Handler{
@@ -154,6 +157,44 @@ func (h *Handler) createFromBatch(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+}
+
+func (h *Handler) getURLsByUser(w http.ResponseWriter, r *http.Request) {
+	_, err := r.Cookie(middlewareUtils.CookieName)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	urls, err := h.urlShortener.GetByUserID(r.Context())
+	if err != nil {
+		logger.Log.Error("error to get url")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	var shortURLBatch []ShortenUserResponseBatch
+	for _, url := range *urls {
+		shortURLBatch = append(shortURLBatch, ShortenUserResponseBatch{
+			ShortURL:    h.prefixURL + url.ShortURL,
+			OriginalURL: url.OriginalURL,
+		})
+	}
+
+	if len(shortURLBatch) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	err = json.NewEncoder(w).Encode(shortURLBatch)
+	if err != nil {
+		logger.Log.Error("error to create response", zap.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 }
 
 func isURLEmpty(url string) bool {

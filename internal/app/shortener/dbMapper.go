@@ -3,9 +3,9 @@ package shortener
 import (
 	"context"
 	"errors"
-
 	"go.uber.org/zap"
 
+	contextUtils "github.com/AsakoKabe/go-yandex-shortener/internal/app/context"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service"
 	dbErrs "github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service/errs"
 	handlerErrs "github.com/AsakoKabe/go-yandex-shortener/internal/app/server/errs"
@@ -28,6 +28,7 @@ func (m *DBUrlMapper) Add(ctx context.Context, originalURL string) (string, erro
 	url := models.URL{
 		ShortURL:    shortURL,
 		OriginalURL: originalURL,
+		UserID:      contextUtils.GetUserID(ctx),
 	}
 	existedShortURL, err := m.urlService.SaveURL(ctx, url)
 	if errors.Is(err, dbErrs.ErrOriginalURLAlreadyExist) {
@@ -49,6 +50,7 @@ func (m *DBUrlMapper) AddBatch(ctx context.Context, originalURLs []string) (*[]s
 		batchURL = append(batchURL, models.URL{
 			ShortURL:    shortURL,
 			OriginalURL: originalURL,
+			UserID:      contextUtils.GetUserID(ctx),
 		})
 		shortURLs = append(shortURLs, shortURL)
 	}
@@ -65,10 +67,16 @@ func (m *DBUrlMapper) AddBatch(ctx context.Context, originalURLs []string) (*[]s
 func (m *DBUrlMapper) Get(ctx context.Context, shortURL string) (string, bool) {
 	su, err := m.urlService.GetURL(ctx, shortURL)
 	if err != nil {
-		logger.Log.Error("error to create short url", zap.String("err", err.Error()))
+		logger.Log.Error("error to get short url", zap.String("err", err.Error()))
 	}
 	if su != nil {
 		return su.OriginalURL, true
 	}
+
 	return "", false
+}
+
+func (m *DBUrlMapper) GetByUserID(ctx context.Context) (*[]models.URL, error) {
+	userID := contextUtils.GetUserID(ctx)
+	return m.urlService.GetURLsByUserID(ctx, userID)
 }
