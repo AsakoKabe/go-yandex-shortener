@@ -1,11 +1,13 @@
-package handlers
+package shortener
 
 import (
 	"context"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener/models"
 )
 
 type URLShortener interface {
 	Add(ctx context.Context, url string) (string, error)
 	AddBatch(ctx context.Context, url []string) (*[]string, error)
 	Get(ctx context.Context, shortURL string) (string, bool)
+	GetByUserID(ctx context.Context) (*[]models.URL, error)
 }

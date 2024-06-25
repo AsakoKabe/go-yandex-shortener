@@ -24,7 +24,7 @@ func Test_createShortURL(t *testing.T) {
 		name      string
 		want      want
 		body      io.Reader
-		shortener URLShortener
+		shortener shortener.URLShortener
 	}{
 		{
 			name: "simple positive",
@@ -129,7 +129,7 @@ func TestHandler_createShortURLJson(t *testing.T) {
 		name      string
 		want      want
 		body      io.Reader
-		shortener URLShortener
+		shortener shortener.URLShortener
 	}{
 		{
 			name: "simple positive",

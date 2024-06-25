@@ -9,7 +9,7 @@ import (
 )
 
 func RegisterHTTPEndpoint(router *chi.Mux, services *service.Services, cfg *config.Config) error {
-	var mapper URLShortener
+	var mapper shortener.URLShortener
 	if cfg.DatabaseDSN != "" {
 		pingHandler := NewPingHandler(services.PingService)
 		router.Get("/ping", pingHandler.healthDB)
@@ -23,6 +23,7 @@ func RegisterHTTPEndpoint(router *chi.Mux, services *service.Services, cfg *conf
 	router.Post("/", h.createShortURL)
 	router.Post("/api/shorten", h.createShortURLJson)
 	router.Post("/api/shorten/batch", h.createFromBatch)
+	router.Get("/api/user/urls", h.getURLsByUser)
 
 	return nil
 }
