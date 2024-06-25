@@ -1,24 +1,27 @@
 package shortener
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener/models"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/utils"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 	"go.uber.org/zap"
 	"io"
 	"os"
 	"strings"
+	"sync"
 )
 
-type URLMapper struct {
-	mapping         map[string]ShortURL
+type FileURLMapper struct {
+	mapping         sync.Map
 	maxLenShortURL  int
 	fileStoragePath string
+	fileMutex       sync.Mutex
 }
 
-func NewURLMapper(maxLenShortURL int, fileStoragePath string) *URLMapper {
-	mapper := &URLMapper{
-		mapping:         make(map[string]ShortURL),
+func NewFileURLMapper(maxLenShortURL int, fileStoragePath string) *FileURLMapper {
+	mapper := &FileURLMapper{
 		maxLenShortURL:  maxLenShortURL,
 		fileStoragePath: fileStoragePath,
 	}
@@ -29,13 +32,13 @@ func NewURLMapper(maxLenShortURL int, fileStoragePath string) *URLMapper {
 	return mapper
 }
 
-func (m *URLMapper) Add(url string) (string, error) {
-	shortURL := "/" + utils.RandStringRunes(m.maxLenShortURL)
-	su := ShortURL{
+func (m *FileURLMapper) Add(_ context.Context, url string) (string, error) {
+	shortURL := utils.RandStringRunes(m.maxLenShortURL)
+	su := models.URL{
 		ShortURL:    shortURL,
 		OriginalURL: url,
 	}
-	m.mapping[shortURL] = su
+	m.mapping.Store(shortURL, su)
 	err := m.saveToFile(su)
 	if err != nil {
 		return "", err
@@ -43,15 +46,35 @@ func (m *URLMapper) Add(url string) (string, error) {
 	return shortURL, nil
 }
 
-func (m *URLMapper) Get(shortURL string) (string, bool) {
-	su, ok := m.mapping[shortURL]
+func (m *FileURLMapper) AddBatch(_ context.Context, originalURLs []string) (*[]string, error) {
+	var shortURLs []string
+	for _, originalURL := range originalURLs {
+		shortURL := utils.RandStringRunes(m.maxLenShortURL)
+		su := models.URL{
+			ShortURL:    shortURL,
+			OriginalURL: originalURL,
+		}
+		m.mapping.Store(shortURL, su)
+		shortURLs = append(shortURLs, shortURL)
+		err := m.saveToFile(su)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &shortURLs, nil
+}
+
+func (m *FileURLMapper) Get(_ context.Context, shortURL string) (string, bool) {
+	su, ok := m.mapping.Load(shortURL)
+
 	if ok {
-		return su.OriginalURL, true
+		return su.(models.URL).OriginalURL, true
 	}
 	return "", false
 }
 
-func (m *URLMapper) loadFromFile() error {
+func (m *FileURLMapper) loadFromFile() error {
 	data, err := os.ReadFile(m.fileStoragePath)
 	if os.IsNotExist(err) {
 		return nil
@@ -67,7 +90,7 @@ func (m *URLMapper) loadFromFile() error {
 
 	dec := json.NewDecoder(strings.NewReader(string(data)))
 	for {
-		var su ShortURL
+		var su models.URL
 
 		err = dec.Decode(&su)
 		if err == io.EOF {
@@ -77,13 +100,16 @@ func (m *URLMapper) loadFromFile() error {
 			logger.Log.Error("error to parse json", zap.String("err", err.Error()))
 			return err
 		}
-		m.mapping[su.ShortURL] = su
+		m.mapping.Store(su.ShortURL, su)
 	}
 
 	return nil
 }
 
-func (m *URLMapper) saveToFile(su ShortURL) error {
+func (m *FileURLMapper) saveToFile(su models.URL) error {
+	m.fileMutex.Lock()
+	defer m.fileMutex.Unlock()
+
 	content, _ := json.Marshal(su)
 
 	f, err := os.OpenFile(m.fileStoragePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)

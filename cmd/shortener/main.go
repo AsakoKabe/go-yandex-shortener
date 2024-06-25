@@ -13,7 +13,11 @@ func main() {
 		return
 	}
 
-	app := server.NewApp()
+	app, err := server.NewApp(cfg)
+	if err != nil {
+		log.Fatalf("%s", err.Error())
+	}
+	defer app.CloseDBPool()
 
 	if err := app.Run(cfg); err != nil {
 		log.Fatalf("%s", err.Error())

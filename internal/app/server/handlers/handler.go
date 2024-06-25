@@ -2,11 +2,14 @@ package handlers
 
 import (
 	"encoding/json"
-	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
-	"go.uber.org/zap"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
+
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/errs"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
 
 type Handler struct {
@@ -20,7 +23,7 @@ func NewHandler(
 ) *Handler {
 	return &Handler{
 		urlShortener: urlShortener,
-		prefixURL:    prefixURL,
+		prefixURL:    prefixURL + "/",
 	}
 }
 
@@ -33,12 +36,15 @@ func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if h.emptyURL(url) {
+	if isURLEmpty(url) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	shortURL, err := h.urlShortener.Add(url)
-	if err != nil {
+	shortURL, err := h.urlShortener.Add(r.Context(), url)
+	if errors.Is(err, errs.ErrConflictOriginalURL) {
+		logger.Log.Info("original url already exist", zap.String("err", err.Error()))
+		w.WriteHeader(http.StatusConflict)
+	} else if err != nil {
 		logger.Log.Error("error to create short url", zap.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -49,26 +55,22 @@ func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(h.prefixURL + shortURL))
 }
 
-func (h *Handler) emptyURL(url string) bool {
-	return url == ""
-}
-
 func (h *Handler) getURL(w http.ResponseWriter, r *http.Request) {
-	shortURL := "/" + chi.URLParam(r, "id")
+	shortURL := chi.URLParam(r, "id")
 
-	if urlNotEmpty(shortURL) {
+	if isURLEmpty(shortURL) {
 		logger.Log.Error("shortURL not found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	url, ok := h.urlShortener.Get(shortURL)
+	url, ok := h.urlShortener.Get(r.Context(), shortURL)
 	if !ok {
 		logger.Log.Error("error to get url")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if urlNotEmpty(url) {
+	if isURLEmpty(url) {
 		logger.Log.Error("URL not found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -87,22 +89,66 @@ func (h *Handler) createShortURLJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.emptyURL(sr.URL) {
+	if isURLEmpty(sr.URL) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	shortURL, err := h.urlShortener.Add(sr.URL)
+	w.Header().Set("Content-Type", "application/json")
+
+	shortURL, err := h.urlShortener.Add(r.Context(), sr.URL)
+	if errors.Is(err, errs.ErrConflictOriginalURL) {
+		logger.Log.Info("original url already exist", zap.String("err", err.Error()))
+		w.WriteHeader(http.StatusConflict)
+	} else if err != nil {
+		logger.Log.Error("error to create short url", zap.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	} else {
+		w.WriteHeader(http.StatusCreated)
+	}
+
+	response := ShortenerResponse{Result: h.prefixURL + shortURL}
+
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		logger.Log.Error("error to create response", zap.String("err", err.Error()))
+		w.WriteHeader(http.StatusBadRequest)
+	}
+}
+
+func (h *Handler) createFromBatch(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var urlBatch []ShortenRequestBatch
+	err := json.NewDecoder(r.Body).Decode(&urlBatch)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var originalURLs []string
+	for _, originalURL := range urlBatch {
+		originalURLs = append(originalURLs, originalURL.OriginalURL)
+	}
+
+	shortURLs, err := h.urlShortener.AddBatch(r.Context(), originalURLs)
 	if err != nil {
 		logger.Log.Error("error to create short url", zap.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	var shortURLBatch []ShortenResponseBatch
+	for i, shortURL := range *shortURLs {
+		shortURLBatch = append(shortURLBatch, ShortenResponseBatch{
+			ShortURL:      h.prefixURL + shortURL,
+			CorrelationID: urlBatch[i].CorrelationID,
+		})
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
-	response := ShortenResponse{Result: h.prefixURL + shortURL}
-	err = json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(shortURLBatch)
 	if err != nil {
 		logger.Log.Error("error to create response", zap.String("err", err.Error()))
 		w.WriteHeader(http.StatusBadRequest)
@@ -110,6 +156,6 @@ func (h *Handler) createShortURLJson(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func urlNotEmpty(url string) bool {
+func isURLEmpty(url string) bool {
 	return url == ""
 }
