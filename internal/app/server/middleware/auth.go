@@ -8,8 +8,10 @@ import (
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/utils/jwt"
 )
 
+// CookieName Ключ под которым хранится кука
 const CookieName = "jwt"
 
+// Auth Middleware для аутентификации пользователя и получения userID
 func Auth(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
@@ -25,10 +27,12 @@ func Auth(next http.Handler) http.Handler {
 					return
 				}
 
-				http.SetCookie(w, &http.Cookie{
-					Name:  CookieName,
-					Value: tokenString,
-				})
+				http.SetCookie(
+					w, &http.Cookie{
+						Name:  CookieName,
+						Value: tokenString,
+					},
+				)
 			} else {
 				tokenString = cookie.Value
 			}

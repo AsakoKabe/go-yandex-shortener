@@ -21,14 +21,17 @@ func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	}
 }
 
+// Header Получить значение хедера
 func (c *compressWriter) Header() http.Header {
 	return c.w.Header()
 }
 
+// Write Передать данные для сжатия
 func (c *compressWriter) Write(p []byte) (int, error) {
 	return c.zw.Write(p)
 }
 
+// WriteHeader Записать тип кодировки в хедер
 func (c *compressWriter) WriteHeader(statusCode int) {
 	if statusCode < 300 {
 		c.w.Header().Set("Content-Encoding", "gzip")
@@ -60,10 +63,12 @@ func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 	}, nil
 }
 
+// Read Прочитать сжатые данные
 func (c *compressReader) Read(p []byte) (n int, err error) {
 	return c.zr.Read(p)
 }
 
+// Close Закрыть reader
 func (c *compressReader) Close() error {
 	if err := c.r.Close(); err != nil {
 		return err
@@ -71,6 +76,7 @@ func (c *compressReader) Close() error {
 	return c.zr.Close()
 }
 
+// Gzip Middleware для сжатия данных в формате gzip
 func Gzip(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {

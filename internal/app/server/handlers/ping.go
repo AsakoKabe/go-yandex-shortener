@@ -6,10 +6,12 @@ import (
 	"net/http"
 )
 
+// PingHandler Структура для endpoints проверки состояния БД
 type PingHandler struct {
 	pingService service.PingService
 }
 
+// NewPingHandler Конструктор для PingHandler
 func NewPingHandler(pingService service.PingService) *PingHandler {
 	return &PingHandler{pingService: pingService}
 }

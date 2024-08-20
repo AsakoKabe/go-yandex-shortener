@@ -15,6 +15,7 @@ import (
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
 
+// Handler Структура для хранения общих объектов между endpoints
 type Handler struct {
 	urlShortener shortener.URLShortener
 	prefixURL    string
@@ -29,6 +30,7 @@ type deleteJob struct {
 	userID   string
 }
 
+// NewHandler конструктор для Handler
 func NewHandler(
 	urlShortener shortener.URLShortener,
 	prefixURL string,

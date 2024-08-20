@@ -22,12 +22,14 @@ import (
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
 
+// App Приложение
 type App struct {
 	httpServer *http.Server
 	dbPool     *sql.DB
 	services   *service.Services
 }
 
+// NewApp Конструктор для App
 func NewApp(cfg *config.Config) (*App, error) {
 	if cfg.DatabaseDSN == "" {
 		return &App{}, nil
@@ -50,6 +52,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}, nil
 }
 
+// Run Запуск приложения
 func (a *App) Run(cfg *config.Config) error {
 	err := logger.Initialize(zap.InfoLevel)
 	if err != nil {
@@ -96,6 +99,7 @@ func (a *App) Run(cfg *config.Config) error {
 
 }
 
+// CloseDBPool Закрытие соединения с БД
 func (a *App) CloseDBPool() {
 	if a.dbPool == nil {
 		return

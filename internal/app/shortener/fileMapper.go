@@ -15,6 +15,7 @@ import (
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
 
+// FileURLMapper Реализация URLShortener с хранение сжатых URL в мапе
 type FileURLMapper struct {
 	mappingByShortURL sync.Map
 	maxLenShortURL    int
@@ -22,6 +23,7 @@ type FileURLMapper struct {
 	fileMutex         sync.Mutex
 }
 
+// NewFileURLMapper Конструктор для FileURLMapper
 func NewFileURLMapper(maxLenShortURL int, fileStoragePath string) *FileURLMapper {
 	mapper := &FileURLMapper{
 		maxLenShortURL:  maxLenShortURL,
@@ -34,6 +36,7 @@ func NewFileURLMapper(maxLenShortURL int, fileStoragePath string) *FileURLMapper
 	return mapper
 }
 
+// Add Сжать и добавить URL для пользователя
 func (m *FileURLMapper) Add(_ context.Context, url string, userID string) (string, error) {
 	shortURL := utils.RandStringRunes(m.maxLenShortURL)
 	su := models.URL{
@@ -49,6 +52,7 @@ func (m *FileURLMapper) Add(_ context.Context, url string, userID string) (strin
 	return shortURL, nil
 }
 
+// AddBatch Сжать и добавить батч из URL
 func (m *FileURLMapper) AddBatch(
 	_ context.Context, originalURLs []string, userID string,
 ) (*[]string, error) {
@@ -71,6 +75,7 @@ func (m *FileURLMapper) AddBatch(
 	return &shortURLs, nil
 }
 
+// Get Получить оригинальный URL по сжатому
 func (m *FileURLMapper) Get(_ context.Context, shortURL string) (*models.URL, bool) {
 	su, ok := m.mappingByShortURL.Load(shortURL)
 
@@ -144,6 +149,7 @@ func (m *FileURLMapper) saveToFile(su models.URL) error {
 	return nil
 }
 
+// GetByUserID Получить список сжатых URL по userID
 func (m *FileURLMapper) GetByUserID(_ context.Context, userID string) (*[]models.URL, error) {
 	var urls []models.URL
 
@@ -160,6 +166,7 @@ func (m *FileURLMapper) GetByUserID(_ context.Context, userID string) (*[]models
 	return &urls, nil
 }
 
+// DeleteShortURLs Удалить сжатые URl из списка
 func (m *FileURLMapper) DeleteShortURLs(
 	_ context.Context, shortURLs []string, userID string,
 ) error {

@@ -13,15 +13,18 @@ import (
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
 
+// DBUrlMapper Реализация работы URLShortener с хранением в БД
 type DBUrlMapper struct {
 	maxLenShortURL int
 	urlService     service.URLService
 }
 
+// NewDBUrlMapper Конструктор для DBUrlMapper
 func NewDBUrlMapper(maxLenShortURL int, urlService service.URLService) *DBUrlMapper {
 	return &DBUrlMapper{maxLenShortURL: maxLenShortURL, urlService: urlService}
 }
 
+// Add Сжать и добавить URL для пользователя
 func (m *DBUrlMapper) Add(ctx context.Context, originalURL string, userID string) (string, error) {
 	shortURL := utils.RandStringRunes(m.maxLenShortURL)
 	url := models.URL{
@@ -40,17 +43,22 @@ func (m *DBUrlMapper) Add(ctx context.Context, originalURL string, userID string
 	return shortURL, nil
 }
 
-func (m *DBUrlMapper) AddBatch(ctx context.Context, originalURLs []string, userID string) (*[]string, error) {
+// AddBatch Сжать и добавить батч из URL
+func (m *DBUrlMapper) AddBatch(
+	ctx context.Context, originalURLs []string, userID string,
+) (*[]string, error) {
 	var batchURL []models.URL
 	var shortURLs []string
 
 	for _, originalURL := range originalURLs {
 		shortURL := utils.RandStringRunes(m.maxLenShortURL)
-		batchURL = append(batchURL, models.URL{
-			ShortURL:    shortURL,
-			OriginalURL: originalURL,
-			UserID:      userID,
-		})
+		batchURL = append(
+			batchURL, models.URL{
+				ShortURL:    shortURL,
+				OriginalURL: originalURL,
+				UserID:      userID,
+			},
+		)
 		shortURLs = append(shortURLs, shortURL)
 	}
 
@@ -63,6 +71,7 @@ func (m *DBUrlMapper) AddBatch(ctx context.Context, originalURLs []string, userI
 	return &shortURLs, nil
 }
 
+// Get Получить оригинальный URL по сжатому
 func (m *DBUrlMapper) Get(ctx context.Context, shortURL string) (*models.URL, bool) {
 	su, err := m.urlService.GetURL(ctx, shortURL)
 	if err != nil {
@@ -75,10 +84,14 @@ func (m *DBUrlMapper) Get(ctx context.Context, shortURL string) (*models.URL, bo
 	return nil, false
 }
 
+// GetByUserID Получить список сжатых URL по userID
 func (m *DBUrlMapper) GetByUserID(ctx context.Context, userID string) (*[]models.URL, error) {
 	return m.urlService.GetURLsByUserID(ctx, userID)
 }
 
-func (m *DBUrlMapper) DeleteShortURLs(ctx context.Context, shortURLs []string, userID string) error {
+// DeleteShortURLs Удалить сжатые URl из списка
+func (m *DBUrlMapper) DeleteShortURLs(
+	ctx context.Context, shortURLs []string, userID string,
+) error {
 	return m.urlService.DeleteShortURLs(ctx, shortURLs, userID)
 }
