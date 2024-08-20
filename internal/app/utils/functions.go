@@ -16,8 +16,8 @@ func RandStringRunes(n int) string {
 }
 
 func GetEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if len(value) == 0 {
+	value, ok := os.LookupEnv(key)
+	if !ok {
 		return defaultValue
 	}
 	return value
