@@ -164,10 +164,12 @@ func (h *Handler) createFromBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	var shortURLBatch []ShortenResponseBatch
 	for i, shortURL := range *shortURLs {
-		shortURLBatch = append(shortURLBatch, ShortenResponseBatch{
-			ShortURL:      h.prefixURL + shortURL,
-			CorrelationID: urlBatch[i].CorrelationID,
-		})
+		shortURLBatch = append(
+			shortURLBatch, ShortenResponseBatch{
+				ShortURL:      h.prefixURL + shortURL,
+				CorrelationID: urlBatch[i].CorrelationID,
+			},
+		)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -196,10 +198,12 @@ func (h *Handler) getURLsByUser(w http.ResponseWriter, r *http.Request) {
 	}
 	var shortURLBatch []ShortenUserResponseBatch
 	for _, url := range *urls {
-		shortURLBatch = append(shortURLBatch, ShortenUserResponseBatch{
-			ShortURL:    h.prefixURL + url.ShortURL,
-			OriginalURL: url.OriginalURL,
-		})
+		shortURLBatch = append(
+			shortURLBatch, ShortenUserResponseBatch{
+				ShortURL:    h.prefixURL + url.ShortURL,
+				OriginalURL: url.OriginalURL,
+			},
+		)
 	}
 
 	if len(shortURLBatch) == 0 {
@@ -213,7 +217,6 @@ func (h *Handler) getURLsByUser(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(shortURLBatch)
 	if err != nil {
 		logger.Log.Error("error to create response", zap.String("err", err.Error()))
-		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -229,10 +232,12 @@ func (h *Handler) deleteShorURLs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := contextUtils.GetUserID(r.Context())
-	h.deleteJobs <- deleteJob{
-		shortURL: shortURLs,
-		userID:   userID,
-	}
+	go func() {
+		h.deleteJobs <- deleteJob{
+			shortURL: shortURLs,
+			userID:   userID,
+		}
+	}()
 
 	w.WriteHeader(http.StatusAccepted)
 

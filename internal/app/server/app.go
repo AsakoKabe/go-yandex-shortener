@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"time"
@@ -59,6 +60,7 @@ func (a *App) Run(cfg *config.Config) error {
 	router.Use(chiMiddleware.Logger)
 	router.Use(middlewareUtils.Gzip)
 	router.Use(middlewareUtils.Auth)
+	router.Mount("/debug", chiMiddleware.Profiler())
 
 	err = handlers.RegisterHTTPEndpoint(router, a.services, cfg)
 	if err != nil {

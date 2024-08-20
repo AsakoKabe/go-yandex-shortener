@@ -2,12 +2,12 @@ package shortener
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"os"
 	"strings"
 	"sync"
 
+	"github.com/goccy/go-json"
 	"go.uber.org/zap"
 
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener/models"
@@ -49,7 +49,9 @@ func (m *FileURLMapper) Add(_ context.Context, url string, userID string) (strin
 	return shortURL, nil
 }
 
-func (m *FileURLMapper) AddBatch(_ context.Context, originalURLs []string, userID string) (*[]string, error) {
+func (m *FileURLMapper) AddBatch(
+	_ context.Context, originalURLs []string, userID string,
+) (*[]string, error) {
 	var shortURLs []string
 	for _, originalURL := range originalURLs {
 		shortURL := utils.RandStringRunes(m.maxLenShortURL)
@@ -145,18 +147,22 @@ func (m *FileURLMapper) saveToFile(su models.URL) error {
 func (m *FileURLMapper) GetByUserID(_ context.Context, userID string) (*[]models.URL, error) {
 	var urls []models.URL
 
-	m.mappingByShortURL.Range(func(key, value interface{}) bool {
-		url := value.(models.URL)
-		if url.UserID == userID {
-			urls = append(urls, url)
-		}
-		return true
-	})
+	m.mappingByShortURL.Range(
+		func(key, value interface{}) bool {
+			url := value.(models.URL)
+			if url.UserID == userID {
+				urls = append(urls, url)
+			}
+			return true
+		},
+	)
 
 	return &urls, nil
 }
 
-func (m *FileURLMapper) DeleteShortURLs(_ context.Context, shortURLs []string, userID string) error {
+func (m *FileURLMapper) DeleteShortURLs(
+	_ context.Context, shortURLs []string, userID string,
+) error {
 	for _, shortURL := range shortURLs {
 		value, ok := m.mappingByShortURL.Load(shortURL)
 		if !ok {
