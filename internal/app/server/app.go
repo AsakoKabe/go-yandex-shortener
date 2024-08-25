@@ -3,9 +3,8 @@ package server
 import (
 	"context"
 	"database/sql"
-	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/errs"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
 	"log"
 	"net/http"
@@ -16,7 +15,9 @@ import (
 	"github.com/AsakoKabe/go-yandex-shortener/config"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/connection"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/errs"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/handlers"
+	middlewareUtils "github.com/AsakoKabe/go-yandex-shortener/internal/app/server/middleware"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
 
@@ -55,8 +56,9 @@ func (a *App) Run(cfg *config.Config) error {
 	}
 
 	router := chi.NewRouter()
-	router.Use(middleware.Logger)
-	router.Use(gzipMiddleware)
+	router.Use(chiMiddleware.Logger)
+	router.Use(middlewareUtils.Gzip)
+	router.Use(middlewareUtils.Auth)
 
 	err = handlers.RegisterHTTPEndpoint(router, a.services, cfg)
 	if err != nil {
