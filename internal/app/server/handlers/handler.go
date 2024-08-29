@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"net/http"
 
 	contextUtils "github.com/AsakoKabe/go-yandex-shortener/internal/app/context"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/errs"

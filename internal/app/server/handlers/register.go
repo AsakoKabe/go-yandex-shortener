@@ -1,10 +1,10 @@
 package handlers
 
 import (
-	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/AsakoKabe/go-yandex-shortener/config"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener"
 )
 

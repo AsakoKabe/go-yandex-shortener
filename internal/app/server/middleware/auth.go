@@ -1,8 +1,9 @@
 package middleware
 
 import (
-	"github.com/google/uuid"
 	"net/http"
+
+	"github.com/google/uuid"
 
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/context"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/utils/jwt"

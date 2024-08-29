@@ -2,9 +2,10 @@ package jwt
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/utils"
 	"github.com/golang-jwt/jwt/v5"
-	"time"
 )
 
 // Claims Данные для jwt

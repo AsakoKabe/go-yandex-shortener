@@ -2,6 +2,7 @@ package service
 
 import (
 	"database/sql"
+
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service/postgres"
 )
 

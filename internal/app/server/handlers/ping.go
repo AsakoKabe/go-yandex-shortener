@@ -2,8 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
-	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service"
 	"net/http"
+
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service"
 )
 
 // PingHandler Структура для endpoints проверки состояния БД
