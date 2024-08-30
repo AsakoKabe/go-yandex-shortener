@@ -2,12 +2,12 @@ package shortener
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"os"
 	"strings"
 	"sync"
 
+	"github.com/goccy/go-json"
 	"go.uber.org/zap"
 
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener/models"
@@ -15,6 +15,7 @@ import (
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
 
+// FileURLMapper Реализация URLShortener с хранение сжатых URL в мапе
 type FileURLMapper struct {
 	mappingByShortURL sync.Map
 	maxLenShortURL    int
@@ -22,6 +23,7 @@ type FileURLMapper struct {
 	fileMutex         sync.Mutex
 }
 
+// NewFileURLMapper Конструктор для FileURLMapper
 func NewFileURLMapper(maxLenShortURL int, fileStoragePath string) *FileURLMapper {
 	mapper := &FileURLMapper{
 		maxLenShortURL:  maxLenShortURL,
@@ -34,6 +36,7 @@ func NewFileURLMapper(maxLenShortURL int, fileStoragePath string) *FileURLMapper
 	return mapper
 }
 
+// Add Сжать и добавить URL для пользователя
 func (m *FileURLMapper) Add(_ context.Context, url string, userID string) (string, error) {
 	shortURL := utils.RandStringRunes(m.maxLenShortURL)
 	su := models.URL{
@@ -49,7 +52,10 @@ func (m *FileURLMapper) Add(_ context.Context, url string, userID string) (strin
 	return shortURL, nil
 }
 
-func (m *FileURLMapper) AddBatch(_ context.Context, originalURLs []string, userID string) (*[]string, error) {
+// AddBatch Сжать и добавить батч из URL
+func (m *FileURLMapper) AddBatch(
+	_ context.Context, originalURLs []string, userID string,
+) (*[]string, error) {
 	var shortURLs []string
 	for _, originalURL := range originalURLs {
 		shortURL := utils.RandStringRunes(m.maxLenShortURL)
@@ -69,6 +75,7 @@ func (m *FileURLMapper) AddBatch(_ context.Context, originalURLs []string, userI
 	return &shortURLs, nil
 }
 
+// Get Получить оригинальный URL по сжатому
 func (m *FileURLMapper) Get(_ context.Context, shortURL string) (*models.URL, bool) {
 	su, ok := m.mappingByShortURL.Load(shortURL)
 
@@ -142,21 +149,27 @@ func (m *FileURLMapper) saveToFile(su models.URL) error {
 	return nil
 }
 
+// GetByUserID Получить список сжатых URL по userID
 func (m *FileURLMapper) GetByUserID(_ context.Context, userID string) (*[]models.URL, error) {
 	var urls []models.URL
 
-	m.mappingByShortURL.Range(func(key, value interface{}) bool {
-		url := value.(models.URL)
-		if url.UserID == userID {
-			urls = append(urls, url)
-		}
-		return true
-	})
+	m.mappingByShortURL.Range(
+		func(key, value interface{}) bool {
+			url := value.(models.URL)
+			if url.UserID == userID {
+				urls = append(urls, url)
+			}
+			return true
+		},
+	)
 
 	return &urls, nil
 }
 
-func (m *FileURLMapper) DeleteShortURLs(_ context.Context, shortURLs []string, userID string) error {
+// DeleteShortURLs Удалить сжатые URl из списка
+func (m *FileURLMapper) DeleteShortURLs(
+	_ context.Context, shortURLs []string, userID string,
+) error {
 	for _, shortURL := range shortURLs {
 		value, ok := m.mappingByShortURL.Load(shortURL)
 		if !ok {

@@ -1,13 +1,14 @@
 package handlers
 
 import (
-	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/AsakoKabe/go-yandex-shortener/config"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/service"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener"
 )
 
+// RegisterHTTPEndpoint Функция для регистрации endpoints
 func RegisterHTTPEndpoint(router *chi.Mux, services *service.Services, cfg *config.Config) error {
 	var mapper shortener.URLShortener
 	if cfg.DatabaseDSN != "" {

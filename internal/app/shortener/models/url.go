@@ -1,5 +1,6 @@
 package models
 
+// URL Модель URL
 type URL struct {
 	ID          int
 	UserID      string

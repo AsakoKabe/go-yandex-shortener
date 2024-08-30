@@ -13,10 +13,12 @@ import (
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
 
+// URLService Реализация работы с URL для postgres
 type URLService struct {
 	db *sql.DB
 }
 
+// NewURLService Конструктор для URLService
 func NewURLService(db *sql.DB) (*URLService, error) {
 	err := createTable(context.Background(), db)
 	if err != nil {
@@ -25,8 +27,11 @@ func NewURLService(db *sql.DB) (*URLService, error) {
 	return &URLService{db: db}, nil
 }
 
+// SaveURL Сохранить URL в БД
 func (u *URLService) SaveURL(ctx context.Context, url models.URL) (string, error) {
-	existedURLs, err := u.getURLsByQuery(ctx, "select * from url WHERE original_url = $1", url.OriginalURL)
+	existedURLs, err := u.getURLsByQuery(
+		ctx, "select * from url WHERE original_url = $1", url.OriginalURL,
+	)
 	if err != nil {
 		return "", err
 	}
@@ -44,17 +49,24 @@ func (u *URLService) SaveURL(ctx context.Context, url models.URL) (string, error
 	return "", nil
 }
 
+// SaveBatchURL Сохранить батч из URL в БД
 func (u *URLService) SaveBatchURL(ctx context.Context, batchURL []models.URL) error {
 	var vals []any
 	var placeholders []string
 	for index, url := range batchURL {
-		placeholders = append(placeholders, fmt.Sprintf(
-			"($%d, $%d,$%d)",
-			index*3+1, index*3+2, index*3+3))
+		placeholders = append(
+			placeholders, fmt.Sprintf(
+				"($%d, $%d,$%d)",
+				index*3+1, index*3+2, index*3+3,
+			),
+		)
 		vals = append(vals, url.UserID, url.ShortURL, url.OriginalURL)
 	}
 
-	query := fmt.Sprintf("INSERT INTO url (user_id, short_url, original_url) VALUES %s", strings.Join(placeholders, ","))
+	query := fmt.Sprintf(
+		"INSERT INTO url (user_id, short_url, original_url) VALUES %s",
+		strings.Join(placeholders, ","),
+	)
 
 	_, err := u.db.ExecContext(ctx, query, vals...)
 	if err != nil {
@@ -65,6 +77,7 @@ func (u *URLService) SaveBatchURL(ctx context.Context, batchURL []models.URL) er
 
 }
 
+// GetURL Получить исходный URL по сжатому
 func (u *URLService) GetURL(ctx context.Context, shortURL string) (*models.URL, error) {
 	urls, err := u.getURLsByQuery(ctx, "select * from url WHERE short_url = $1", shortURL)
 	if err != nil {
@@ -74,7 +87,9 @@ func (u *URLService) GetURL(ctx context.Context, shortURL string) (*models.URL, 
 	return getFirstURL(urls), nil
 }
 
-func (u *URLService) getURLsByQuery(ctx context.Context, query string, args ...any) (*[]models.URL, error) {
+func (u *URLService) getURLsByQuery(ctx context.Context, query string, args ...any) (
+	*[]models.URL, error,
+) {
 	rows, err := u.db.QueryContext(
 		ctx,
 		query,
@@ -103,7 +118,9 @@ func (u *URLService) getURLsByQuery(ctx context.Context, query string, args ...a
 
 func (u *URLService) parseRow(rows *sql.Rows, nameTasks *[]models.URL) error {
 	var url models.URL
-	if err := rows.Scan(&url.ID, &url.UserID, &url.ShortURL, &url.OriginalURL, &url.DeletedFlag); err != nil {
+	if err := rows.Scan(
+		&url.ID, &url.UserID, &url.ShortURL, &url.OriginalURL, &url.DeletedFlag,
+	); err != nil {
 		logger.Log.Error("error parse urls from db", zap.String("err", err.Error()))
 		return err
 	}
@@ -120,10 +137,12 @@ func getFirstURL(urls *[]models.URL) *models.URL {
 	return &(*urls)[0]
 }
 
+// GetURLsByUserID Получить список всех URL для пользователя
 func (u *URLService) GetURLsByUserID(ctx context.Context, userID string) (*[]models.URL, error) {
 	return u.getURLsByQuery(ctx, "select * from url WHERE user_id = $1", userID)
 }
 
+// DeleteShortURLs Удалить список из URL для пользователя
 func (u *URLService) DeleteShortURLs(ctx context.Context, shortURLs []string, userID string) error {
 	params := make([]string, 0, len(shortURLs))
 	var vals []any

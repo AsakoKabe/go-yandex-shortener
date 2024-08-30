@@ -3,14 +3,16 @@ package server
 import (
 	"context"
 	"database/sql"
-	"github.com/go-chi/chi/v5"
-	chiMiddleware "github.com/go-chi/chi/v5/middleware"
-	"go.uber.org/zap"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 
 	"github.com/AsakoKabe/go-yandex-shortener/config"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/connection"
@@ -21,12 +23,14 @@ import (
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
 
+// App Приложение
 type App struct {
 	httpServer *http.Server
 	dbPool     *sql.DB
 	services   *service.Services
 }
 
+// NewApp Конструктор для App
 func NewApp(cfg *config.Config) (*App, error) {
 	if cfg.DatabaseDSN == "" {
 		return &App{}, nil
@@ -49,6 +53,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}, nil
 }
 
+// Run Запуск приложения
 func (a *App) Run(cfg *config.Config) error {
 	err := logger.Initialize(zap.InfoLevel)
 	if err != nil {
@@ -59,6 +64,7 @@ func (a *App) Run(cfg *config.Config) error {
 	router.Use(chiMiddleware.Logger)
 	router.Use(middlewareUtils.Gzip)
 	router.Use(middlewareUtils.Auth)
+	router.Mount("/debug", chiMiddleware.Profiler())
 
 	err = handlers.RegisterHTTPEndpoint(router, a.services, cfg)
 	if err != nil {
@@ -94,6 +100,7 @@ func (a *App) Run(cfg *config.Config) error {
 
 }
 
+// CloseDBPool Закрытие соединения с БД
 func (a *App) CloseDBPool() {
 	if a.dbPool == nil {
 		return
