@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/AsakoKabe/go-yandex-shortener/config"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/db/connection"
@@ -71,18 +73,40 @@ func (a *App) Run(cfg *config.Config) error {
 		return errs.ErrRegisterEndpoints
 	}
 
+	manager := &autocert.Manager{
+		// директория для хранения сертификатов
+		Cache: autocert.DirCache("cache-dir"),
+		// функция, принимающая Terms of Service издателя сертификатов
+		Prompt: autocert.AcceptTOS,
+		// перечень доменов, для которых будут поддерживаться сертификаты
+		HostPolicy: autocert.HostWhitelist("mysite.ru", "www.mysite.ru"),
+	}
+
 	a.httpServer = &http.Server{
 		Addr:           cfg.Addr,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
+		TLSConfig:      manager.TLSConfig(),
 	}
 
 	go func() {
-		err := http.ListenAndServe(
-			cfg.Addr,
-			router,
-		)
+		var err error
+		if cfg.EnableHTTPS {
+			slog.Info("run server with HTTPS")
+			err = http.ListenAndServeTLS(
+				cfg.Addr,
+				cfg.CertFile,
+				cfg.KeyFile,
+				router,
+			)
+		} else {
+			slog.Info("run server with HTTP")
+			err = http.ListenAndServe(
+				cfg.Addr,
+				router,
+			)
+		}
 		if err != nil {
 			log.Fatalf("Failed to listen and serve: %+v", err)
 		}
