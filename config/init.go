@@ -12,6 +12,9 @@ type Config struct {
 	PrefixURL       string `env:"BASE_URL"`
 	FileStoragePath string `env:"FILE_STORAGE_PATH"`
 	DatabaseDSN     string `env:"DATABASE_DSN"`
+	CertFile        string `env:"CERT_FILE"`
+	KeyFile         string `env:"KEY_FILE"`
+	EnableHTTPS     bool   `env:"ENABLE_HTTPS"`
 }
 
 // LoadConfig функция для загрузки конфигурации.
