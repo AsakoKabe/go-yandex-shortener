@@ -9,6 +9,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -113,8 +114,7 @@ func (a *App) Run(cfg *config.Config) error {
 	}()
 
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, os.Interrupt)
-
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	<-quit
 
 	ctx, shutdown := context.WithTimeout(context.Background(), 5*time.Second)
