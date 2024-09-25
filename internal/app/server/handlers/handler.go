@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -33,13 +35,15 @@ type deleteJob struct {
 
 // NewHandler конструктор для Handler
 func NewHandler(
+	deleteWG *sync.WaitGroup,
 	urlShortener shortener.URLShortener,
 	prefixURL string,
 ) *Handler {
 	jobs := make(chan deleteJob, numDeleteJobs)
 
 	for w := 1; w <= numWorkers; w++ {
-		go deleteWorker(urlShortener, jobs)
+		deleteWG.Add(1)
+		go deleteWorker(deleteWG, urlShortener, jobs)
 	}
 
 	return &Handler{
@@ -246,15 +250,22 @@ func (h *Handler) deleteShorURLs(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// CloseDeleteChannel Завершение чтения задач на удаление ссылок
+func (h *Handler) CloseDeleteChannel() {
+	close(h.deleteJobs)
+}
+
 func isURLEmpty(url string) bool {
 	return url == ""
 }
 
-func deleteWorker(urlShortener shortener.URLShortener, jobs <-chan deleteJob) {
+func deleteWorker(wg *sync.WaitGroup, urlShortener shortener.URLShortener, jobs <-chan deleteJob) {
+	defer wg.Done()
 	for j := range jobs {
 		err := urlShortener.DeleteShortURLs(context.Background(), j.shortURL, j.userID)
 		if err != nil {
 			logger.Log.Error("error to delete url", zap.String("err", err.Error()))
 		}
 	}
+	slog.Info("stop delete worker")
 }

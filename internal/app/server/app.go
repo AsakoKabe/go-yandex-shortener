@@ -3,12 +3,14 @@ package server
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"log"
 	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -31,6 +33,8 @@ type App struct {
 	httpServer *http.Server
 	dbPool     *sql.DB
 	services   *service.Services
+	handler    *handlers.Handler
+	deleteWG   sync.WaitGroup
 }
 
 // NewApp Конструктор для App
@@ -53,6 +57,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 	return &App{
 		dbPool:   pool,
 		services: pgServices,
+		deleteWG: sync.WaitGroup{},
 	}, nil
 }
 
@@ -69,7 +74,7 @@ func (a *App) Run(cfg *config.Config) error {
 	router.Use(middlewareUtils.Auth)
 	router.Mount("/debug", chiMiddleware.Profiler())
 
-	err = handlers.RegisterHTTPEndpoint(router, a.services, cfg)
+	a.handler, err = handlers.RegisterHTTPEndpoint(&a.deleteWG, router, a.services, cfg)
 	if err != nil {
 		return errs.ErrRegisterEndpoints
 	}
@@ -119,13 +124,26 @@ func (a *App) Run(cfg *config.Config) error {
 
 	ctx, shutdown := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdown()
+	go func() {
+		<-ctx.Done()
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			slog.Error("forcing exit")
+		}
+	}()
+	if err = a.httpServer.Shutdown(ctx); err != nil {
+		return err
+	}
 
-	return a.httpServer.Shutdown(ctx)
+	return nil
 
 }
 
-// CloseDBPool Закрытие соединения с БД
-func (a *App) CloseDBPool() {
+// Stop Завершение работы приложения
+func (a *App) Stop() {
+	a.handler.CloseDeleteChannel()
+	a.deleteWG.Wait()
+	slog.Info("delete channel closed and goroutines stopped")
+
 	if a.dbPool == nil {
 		return
 	}
@@ -133,4 +151,5 @@ func (a *App) CloseDBPool() {
 	if err != nil {
 		return
 	}
+	slog.Info("db connection closed")
 }
