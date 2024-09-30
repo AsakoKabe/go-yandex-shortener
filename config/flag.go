@@ -11,7 +11,7 @@ func buildFlag(c *Config) {
 	flag.StringVar(&c.DatabaseDSN, "d", "", "db path")
 	flag.BoolVar(&c.EnableHTTPS, "s", false, "enable https")
 	flag.StringVar(&c.ConfigPath, "c", "", "path to json config")
-	flag.StringVar(&c.TrustedSubnet, "t", "", "trusted subnet")
+	flag.StringVar(&c.TrustedSubnet, "t", "127.0.0.0/8", "trusted subnet")
 }
 
 func parseFlag() {
