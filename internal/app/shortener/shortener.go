@@ -23,4 +23,7 @@ type URLShortener interface {
 	DeleteShortURLs(
 		ctx context.Context, shortURLs []string, userID string,
 	) error // DeleteShortURLs Удалить сжатые URl из списка
+	GetStats(ctx context.Context) (
+		*models.InternalStats, error,
+	) // GetStats Получить статистике по сервису
 }

@@ -1,6 +1,10 @@
 package handlers
 
 import (
+	"log/slog"
+	"sync"
+
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/middleware"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/AsakoKabe/go-yandex-shortener/config"
@@ -9,7 +13,9 @@ import (
 )
 
 // RegisterHTTPEndpoint Функция для регистрации endpoints
-func RegisterHTTPEndpoint(router *chi.Mux, services *service.Services, cfg *config.Config) error {
+func RegisterHTTPEndpoint(
+	deleteWG *sync.WaitGroup, router *chi.Mux, services *service.Services, cfg *config.Config,
+) (*Handler, error) {
 	var mapper shortener.URLShortener
 	if cfg.DatabaseDSN != "" {
 		pingHandler := NewPingHandler(services.PingService)
@@ -19,13 +25,25 @@ func RegisterHTTPEndpoint(router *chi.Mux, services *service.Services, cfg *conf
 		mapper = shortener.NewFileURLMapper(5, cfg.FileStoragePath)
 	}
 
-	h := NewHandler(mapper, cfg.PrefixURL)
+	trustedSubnet, err := middleware.NewTrustedSubnet(cfg.TrustedSubnet)
+	if err != nil {
+		slog.Error("error to create trusted subnet", slog.String("err", err.Error()))
+		return nil, err
+	}
+
+	h := NewHandler(deleteWG, mapper, cfg.PrefixURL)
 	router.Get("/{id}", h.getURL)
 	router.Post("/", h.createShortURL)
 	router.Post("/api/shorten", h.createShortURLJson)
 	router.Post("/api/shorten/batch", h.createFromBatch)
 	router.Get("/api/user/urls", h.getURLsByUser)
 	router.Delete("/api/user/urls", h.deleteShorURLs)
+	router.Route(
+		"/api/internal/stats", func(r chi.Router) {
+			r.Use(trustedSubnet.Middleware)
+			r.Get("/", h.getStats)
+		},
+	)
 
-	return nil
+	return h, nil
 }

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -21,6 +23,7 @@ type Handler struct {
 	urlShortener shortener.URLShortener
 	prefixURL    string
 	deleteJobs   chan deleteJob
+	delWG        *sync.WaitGroup
 }
 
 const numDeleteJobs = 5
@@ -33,19 +36,22 @@ type deleteJob struct {
 
 // NewHandler конструктор для Handler
 func NewHandler(
+	deleteWG *sync.WaitGroup,
 	urlShortener shortener.URLShortener,
 	prefixURL string,
 ) *Handler {
 	jobs := make(chan deleteJob, numDeleteJobs)
 
 	for w := 1; w <= numWorkers; w++ {
-		go deleteWorker(urlShortener, jobs)
+		deleteWG.Add(1)
+		go deleteWorker(deleteWG, urlShortener, jobs)
 	}
 
 	return &Handler{
 		urlShortener: urlShortener,
 		prefixURL:    prefixURL + "/",
 		deleteJobs:   jobs,
+		delWG:        &sync.WaitGroup{},
 	}
 }
 
@@ -235,7 +241,9 @@ func (h *Handler) deleteShorURLs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := contextUtils.GetUserID(r.Context())
+	h.delWG.Add(1)
 	go func() {
+		defer h.delWG.Done()
 		h.deleteJobs <- deleteJob{
 			shortURL: shortURLs,
 			userID:   userID,
@@ -246,15 +254,47 @@ func (h *Handler) deleteShorURLs(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (h *Handler) getStats(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	stats, err := h.urlShortener.GetStats(r.Context())
+	if err != nil {
+		logger.Log.Error("error to get stats")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(
+		InternalStats{
+			Urls:  stats.Urls,
+			Users: stats.Users,
+		},
+	)
+	if err != nil {
+		logger.Log.Error("error to serialize stats", zap.String("err", err.Error()))
+		return
+	}
+}
+
+// CloseDeleteChannel Завершение чтения задач на удаление ссылок
+func (h *Handler) CloseDeleteChannel() {
+	h.delWG.Wait()
+	close(h.deleteJobs)
+}
+
 func isURLEmpty(url string) bool {
 	return url == ""
 }
 
-func deleteWorker(urlShortener shortener.URLShortener, jobs <-chan deleteJob) {
+func deleteWorker(wg *sync.WaitGroup, urlShortener shortener.URLShortener, jobs <-chan deleteJob) {
+	defer wg.Done()
 	for j := range jobs {
 		err := urlShortener.DeleteShortURLs(context.Background(), j.shortURL, j.userID)
 		if err != nil {
 			logger.Log.Error("error to delete url", zap.String("err", err.Error()))
 		}
 	}
+	slog.Info("stop delete worker")
 }

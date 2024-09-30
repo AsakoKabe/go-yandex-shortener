@@ -3,16 +3,18 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"testing"
+
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/utils"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"testing"
 )
 
 func Test_createShortURL(t *testing.T) {
@@ -46,23 +48,26 @@ func Test_createShortURL(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodPost, "/", test.body)
-			w := httptest.NewRecorder()
-			h := NewHandler(test.shortener, "http://localhost:80")
+		t.Run(
+			test.name, func(t *testing.T) {
+				request := httptest.NewRequest(http.MethodPost, "/", test.body)
+				w := httptest.NewRecorder()
+				var deleteWG sync.WaitGroup
+				h := NewHandler(&deleteWG, test.shortener, "http://localhost:80")
 
-			h.createShortURL(w, request)
+				h.createShortURL(w, request)
 
-			res := w.Result()
-			defer res.Body.Close()
-			resBody, err := io.ReadAll(res.Body)
-			assert.Equal(t, test.want.code, res.StatusCode)
-			require.NoError(t, err)
-			if res.StatusCode != http.StatusBadRequest {
-				assert.NotEmpty(t, string(resBody))
-			}
-			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
-		})
+				res := w.Result()
+				defer res.Body.Close()
+				resBody, err := io.ReadAll(res.Body)
+				assert.Equal(t, test.want.code, res.StatusCode)
+				require.NoError(t, err)
+				if res.StatusCode != http.StatusBadRequest {
+					assert.NotEmpty(t, string(resBody))
+				}
+				assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
+			},
+		)
 	}
 }
 
@@ -70,33 +75,41 @@ func Test_getURL(t *testing.T) {
 	urlMap, h := setUpSimple()
 
 	for url, shortURL := range urlMap {
-		t.Run("positive, url: "+url, func(t *testing.T) {
-			request := httptest.NewRequest("GET", "/{id}", nil)
-			rctx := chi.NewRouteContext()
-			rctx.URLParams.Add("id", shortURL)
-			request = request.WithContext(context.WithValue(request.Context(), chi.RouteCtxKey, rctx))
+		t.Run(
+			"positive, url: "+url, func(t *testing.T) {
+				request := httptest.NewRequest("GET", "/{id}", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("id", shortURL)
+				request = request.WithContext(
+					context.WithValue(
+						request.Context(), chi.RouteCtxKey, rctx,
+					),
+				)
+				w := httptest.NewRecorder()
+
+				h.getURL(w, request)
+
+				res := w.Result()
+				res.Body.Close()
+				assert.Equal(t, http.StatusTemporaryRedirect, res.StatusCode)
+				assert.Equal(t, res.Header.Get("Location"), url)
+			},
+		)
+	}
+
+	shortURL := "/" + utils.RandStringRunes(5)
+	t.Run(
+		"negative, random shortURL: "+shortURL, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, shortURL, nil)
 			w := httptest.NewRecorder()
 
 			h.getURL(w, request)
 
 			res := w.Result()
 			res.Body.Close()
-			assert.Equal(t, http.StatusTemporaryRedirect, res.StatusCode)
-			assert.Equal(t, res.Header.Get("Location"), url)
-		})
-	}
-
-	shortURL := "/" + utils.RandStringRunes(5)
-	t.Run("negative, random shortURL: "+shortURL, func(t *testing.T) {
-		request := httptest.NewRequest(http.MethodGet, shortURL, nil)
-		w := httptest.NewRecorder()
-
-		h.getURL(w, request)
-
-		res := w.Result()
-		res.Body.Close()
-		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
-	})
+			assert.Equal(t, http.StatusBadRequest, res.StatusCode)
+		},
+	)
 }
 
 func setUpSimple() (map[string]string, *Handler) {
@@ -105,7 +118,13 @@ func setUpSimple() (map[string]string, *Handler) {
 		"https://ya.ru",
 		"https://example.com",
 	}
-	h := NewHandler(shortener.NewFileURLMapper(5, "/tmp/short-url-db.json"), "http://localhost:80")
+	var deleteWG sync.WaitGroup
+
+	h := NewHandler(
+		&deleteWG,
+		shortener.NewFileURLMapper(5, "/tmp/short-url-db.json"),
+		"http://localhost:80",
+	)
 
 	for _, url := range urls {
 		request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(url))
@@ -151,22 +170,26 @@ func TestHandler_createShortURLJson(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodPost, "/", test.body)
-			w := httptest.NewRecorder()
-			h := NewHandler(test.shortener, "http://localhost:80")
+		t.Run(
+			test.name, func(t *testing.T) {
+				request := httptest.NewRequest(http.MethodPost, "/", test.body)
+				w := httptest.NewRecorder()
+				var deleteWG sync.WaitGroup
 
-			h.createShortURLJson(w, request)
+				h := NewHandler(&deleteWG, test.shortener, "http://localhost:80")
 
-			res := w.Result()
-			defer res.Body.Close()
-			resBody, err := io.ReadAll(res.Body)
-			assert.Equal(t, test.want.code, res.StatusCode)
-			require.NoError(t, err)
-			if res.StatusCode != http.StatusBadRequest {
-				assert.NotEmpty(t, string(resBody))
-			}
-			assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
-		})
+				h.createShortURLJson(w, request)
+
+				res := w.Result()
+				defer res.Body.Close()
+				resBody, err := io.ReadAll(res.Body)
+				assert.Equal(t, test.want.code, res.StatusCode)
+				require.NoError(t, err)
+				if res.StatusCode != http.StatusBadRequest {
+					assert.NotEmpty(t, string(resBody))
+				}
+				assert.Equal(t, test.want.contentType, res.Header.Get("Content-Type"))
+			},
+		)
 	}
 }
