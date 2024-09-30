@@ -23,6 +23,7 @@ type Handler struct {
 	urlShortener shortener.URLShortener
 	prefixURL    string
 	deleteJobs   chan deleteJob
+	delWG        *sync.WaitGroup
 }
 
 const numDeleteJobs = 5
@@ -50,6 +51,7 @@ func NewHandler(
 		urlShortener: urlShortener,
 		prefixURL:    prefixURL + "/",
 		deleteJobs:   jobs,
+		delWG:        &sync.WaitGroup{},
 	}
 }
 
@@ -239,7 +241,9 @@ func (h *Handler) deleteShorURLs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := contextUtils.GetUserID(r.Context())
+	h.delWG.Add(1)
 	go func() {
+		defer h.delWG.Done()
 		h.deleteJobs <- deleteJob{
 			shortURL: shortURLs,
 			userID:   userID,
@@ -252,6 +256,7 @@ func (h *Handler) deleteShorURLs(w http.ResponseWriter, r *http.Request) {
 
 // CloseDeleteChannel Завершение чтения задач на удаление ссылок
 func (h *Handler) CloseDeleteChannel() {
+	h.delWG.Wait()
 	close(h.deleteJobs)
 }
 
