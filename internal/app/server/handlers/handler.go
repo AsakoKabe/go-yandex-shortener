@@ -254,6 +254,30 @@ func (h *Handler) deleteShorURLs(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (h *Handler) getStats(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	stats, err := h.urlShortener.GetStats(r.Context())
+	if err != nil {
+		logger.Log.Error("error to get stats")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(
+		InternalStats{
+			Urls:  stats.Urls,
+			Users: stats.Users,
+		},
+	)
+	if err != nil {
+		logger.Log.Error("error to serialize stats", zap.String("err", err.Error()))
+		return
+	}
+}
+
 // CloseDeleteChannel Завершение чтения задач на удаление ссылок
 func (h *Handler) CloseDeleteChannel() {
 	h.delWG.Wait()

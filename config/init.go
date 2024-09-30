@@ -19,6 +19,7 @@ type Config struct {
 	KeyFile         string `env:"KEY_FILE"`
 	EnableHTTPS     bool   `env:"ENABLE_HTTPS" json:"enable_https"`
 	ConfigPath      string `env:"CONFIG"`
+	TrustedSubnet   string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`
 }
 
 // LoadConfig функция для загрузки конфигурации.

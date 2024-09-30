@@ -184,3 +184,22 @@ func (m *FileURLMapper) DeleteShortURLs(
 
 	return nil
 }
+
+// GetStats Получить статистике по сервису
+func (m *FileURLMapper) GetStats(_ context.Context) (*models.InternalStats, error) {
+	var countURLs int
+	uniqueUsers := make(map[string]bool)
+
+	m.mappingByShortURL.Range(
+		func(key, value interface{}) bool {
+			url := value.(models.URL)
+			uniqueUsers[url.UserID] = true
+			countURLs += 1
+			return true
+		},
+	)
+	return &models.InternalStats{
+		Urls:  countURLs,
+		Users: len(uniqueUsers),
+	}, nil
+}

@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"log/slog"
 	"sync"
 
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/middleware"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/AsakoKabe/go-yandex-shortener/config"
@@ -23,6 +25,12 @@ func RegisterHTTPEndpoint(
 		mapper = shortener.NewFileURLMapper(5, cfg.FileStoragePath)
 	}
 
+	trustedSubnet, err := middleware.NewTrustedSubnet(cfg.TrustedSubnet)
+	if err != nil {
+		slog.Error("error to create trusted subnet", slog.String("err", err.Error()))
+		return nil, err
+	}
+
 	h := NewHandler(deleteWG, mapper, cfg.PrefixURL)
 	router.Get("/{id}", h.getURL)
 	router.Post("/", h.createShortURL)
@@ -30,6 +38,12 @@ func RegisterHTTPEndpoint(
 	router.Post("/api/shorten/batch", h.createFromBatch)
 	router.Get("/api/user/urls", h.getURLsByUser)
 	router.Delete("/api/user/urls", h.deleteShorURLs)
+	router.Route(
+		"/api/internal/stats", func(r chi.Router) {
+			r.Use(trustedSubnet.Middleware)
+			r.Get("/", h.getStats)
+		},
+	)
 
 	return h, nil
 }

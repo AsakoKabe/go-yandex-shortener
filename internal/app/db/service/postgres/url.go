@@ -166,6 +166,20 @@ func (u *URLService) DeleteShortURLs(ctx context.Context, shortURLs []string, us
 	return nil
 }
 
+func (u *URLService) GetCountURLsAndUsers(ctx context.Context) (int, int, error) {
+	query := "select  count(short_url), count(distinct user_id) from url;"
+
+	var countURLs, countUsers int
+	err := u.db.QueryRowContext(ctx, query).Scan(&countURLs, &countUsers)
+	if err != nil {
+		logger.Log.Error("error parse stats from db", zap.String("err", err.Error()))
+		return 0, 0, err
+	}
+
+	return countURLs, countUsers, nil
+
+}
+
 func createTable(ctx context.Context, db *sql.DB) error {
 	query := `CREATE TABLE IF NOT EXISTS url
 	(

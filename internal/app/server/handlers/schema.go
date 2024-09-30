@@ -27,3 +27,9 @@ type ShortenUserResponseBatch struct {
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
 }
+
+// InternalStats Структура с внутренней статистикой
+type InternalStats struct {
+	Urls  int `json:"urls"`
+	Users int `json:"users"`
+}
