@@ -166,6 +166,7 @@ func (u *URLService) DeleteShortURLs(ctx context.Context, shortURLs []string, us
 	return nil
 }
 
+// GetCountURLsAndUsers Получить число сокращенных ссылок и пользователей
 func (u *URLService) GetCountURLsAndUsers(ctx context.Context) (int, int, error) {
 	query := "select  count(short_url), count(distinct user_id) from url;"
 

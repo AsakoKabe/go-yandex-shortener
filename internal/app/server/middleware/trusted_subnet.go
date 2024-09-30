@@ -6,10 +6,12 @@ import (
 	"net/http"
 )
 
+// TrustedSubnet Middleware для CIDR
 type TrustedSubnet struct {
 	ipNet *net.IPNet
 }
 
+// NewTrustedSubnet Конструктор для TrustedSubnet
 func NewTrustedSubnet(IP string) (*TrustedSubnet, error) {
 	_, ipNet, err := net.ParseCIDR(IP)
 	if err != nil {
