@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/AsakoKabe/go-yandex-shortener/config"
-	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/rest"
 )
 
 var (
@@ -22,11 +22,12 @@ func main() {
 		return
 	}
 
-	app, err := server.NewApp(cfg)
+	app, err := rest.NewApp(cfg)
+	// app, err := grpc.NewApp(cfg)
 	if err != nil {
 		log.Fatalf("%s", err.Error())
 	}
-	defer app.CloseDBPool()
+	defer app.Stop()
 
 	if err := app.Run(cfg); err != nil {
 		log.Fatalf("%s", err.Error())

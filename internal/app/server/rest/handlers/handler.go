@@ -1,17 +1,18 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sync"
 
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server"
+	middlewareUtils "github.com/AsakoKabe/go-yandex-shortener/pkg/middleware"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
 	contextUtils "github.com/AsakoKabe/go-yandex-shortener/internal/app/context"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/errs"
-	middlewareUtils "github.com/AsakoKabe/go-yandex-shortener/internal/app/server/middleware"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
@@ -20,32 +21,28 @@ import (
 type Handler struct {
 	urlShortener shortener.URLShortener
 	prefixURL    string
-	deleteJobs   chan deleteJob
-}
-
-const numDeleteJobs = 5
-const numWorkers = 5
-
-type deleteJob struct {
-	shortURL []string
-	userID   string
+	deleteJobs   chan server.DeleteJob
+	delWG        *sync.WaitGroup
 }
 
 // NewHandler конструктор для Handler
 func NewHandler(
+	deleteWG *sync.WaitGroup,
 	urlShortener shortener.URLShortener,
 	prefixURL string,
 ) *Handler {
-	jobs := make(chan deleteJob, numDeleteJobs)
+	jobs := make(chan server.DeleteJob, server.NumDeleteJobs)
 
-	for w := 1; w <= numWorkers; w++ {
-		go deleteWorker(urlShortener, jobs)
+	for w := 1; w <= server.NumWorkers; w++ {
+		deleteWG.Add(1)
+		go server.DeleteWorker(deleteWG, urlShortener, jobs)
 	}
 
 	return &Handler{
 		urlShortener: urlShortener,
 		prefixURL:    prefixURL + "/",
 		deleteJobs:   jobs,
+		delWG:        &sync.WaitGroup{},
 	}
 }
 
@@ -58,7 +55,7 @@ func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if isURLEmpty(url) {
+	if server.IsURLEmpty(url) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -81,7 +78,7 @@ func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getURL(w http.ResponseWriter, r *http.Request) {
 	shortURL := chi.URLParam(r, "id")
 
-	if isURLEmpty(shortURL) {
+	if server.IsURLEmpty(shortURL) {
 		logger.Log.Error("shortURL not found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -93,7 +90,7 @@ func (h *Handler) getURL(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if isURLEmpty(url.OriginalURL) {
+	if server.IsURLEmpty(url.OriginalURL) {
 		logger.Log.Error("URL not found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -116,7 +113,7 @@ func (h *Handler) createShortURLJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if isURLEmpty(sr.URL) {
+	if server.IsURLEmpty(sr.URL) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -235,10 +232,12 @@ func (h *Handler) deleteShorURLs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := contextUtils.GetUserID(r.Context())
+	h.delWG.Add(1)
 	go func() {
-		h.deleteJobs <- deleteJob{
-			shortURL: shortURLs,
-			userID:   userID,
+		defer h.delWG.Done()
+		h.deleteJobs <- server.DeleteJob{
+			ShortURL: shortURLs,
+			UserID:   userID,
 		}
 	}()
 
@@ -246,15 +245,32 @@ func (h *Handler) deleteShorURLs(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func isURLEmpty(url string) bool {
-	return url == ""
+func (h *Handler) getStats(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	stats, err := h.urlShortener.GetStats(r.Context())
+	if err != nil {
+		logger.Log.Error("error to get stats")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err = json.NewEncoder(w).Encode(
+		InternalStats{
+			Urls:  stats.Urls,
+			Users: stats.Users,
+		},
+	)
+	if err != nil {
+		logger.Log.Error("error to serialize stats", zap.String("err", err.Error()))
+		return
+	}
 }
 
-func deleteWorker(urlShortener shortener.URLShortener, jobs <-chan deleteJob) {
-	for j := range jobs {
-		err := urlShortener.DeleteShortURLs(context.Background(), j.shortURL, j.userID)
-		if err != nil {
-			logger.Log.Error("error to delete url", zap.String("err", err.Error()))
-		}
-	}
+// CloseDeleteChannel Завершение чтения задач на удаление ссылок
+func (h *Handler) CloseDeleteChannel() {
+	h.delWG.Wait()
+	close(h.deleteJobs)
 }

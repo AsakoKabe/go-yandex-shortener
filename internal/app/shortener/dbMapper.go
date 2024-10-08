@@ -96,3 +96,17 @@ func (m *DBUrlMapper) DeleteShortURLs(
 ) error {
 	return m.urlService.DeleteShortURLs(ctx, shortURLs, userID)
 }
+
+// GetStats Получить статистику по сервису
+func (m *DBUrlMapper) GetStats(ctx context.Context) (*models.InternalStats, error) {
+	countURLs, countUsers, err := m.urlService.GetCountURLsAndUsers(ctx)
+	if err != nil {
+		logger.Log.Error("error to get stats from db", zap.String("err", err.Error()))
+		return nil, err
+	}
+
+	return &models.InternalStats{
+		Urls:  countURLs,
+		Users: countUsers,
+	}, nil
+}

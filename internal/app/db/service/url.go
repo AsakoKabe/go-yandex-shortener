@@ -21,4 +21,7 @@ type URLService interface {
 	DeleteShortURLs(
 		ctx context.Context, shortURLs []string, userID string,
 	) error // DeleteShortURLs Удалить список из URL для пользователя
+	GetCountURLsAndUsers(ctx context.Context) (
+		int, int, error,
+	) // GetCountURLsAndUsers Получить число ссылок и пользователей
 }

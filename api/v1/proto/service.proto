@@ -1,0 +1,16 @@
+syntax = "proto3";
+import "message.proto";
+import "google/protobuf/empty.proto";
+
+package shortener;
+
+option go_package = "github.com/AsakoKabe/go-yandex-shortener/api/v1/generated;generated";
+
+service Shortener {
+  rpc AddShortURL(ShortenRequest) returns (ShortenResponse);
+  rpc AddBatchShortURL(ShortenBatchRequest) returns (ShortenBatchResponse);
+  rpc GetURL(URLRequest) returns (URLResponse);
+  rpc GetMyURLs(google.protobuf.Empty) returns (UserURLsBatchResponse);
+  rpc DeleteShortURLs(ShortURLs) returns (Deleted);
+  rpc GetStats(google.protobuf.Empty) returns (InternalStats);
+}
