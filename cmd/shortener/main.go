@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/AsakoKabe/go-yandex-shortener/config"
-	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/grpc"
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/rest"
 )
 
 var (
@@ -22,8 +22,8 @@ func main() {
 		return
 	}
 
-	// app, err := rest.NewApp(cfg)
-	app, err := grpc.NewApp(cfg)
+	app, err := rest.NewApp(cfg)
+	// app, err := grpc.NewApp(cfg)
 	if err != nil {
 		log.Fatalf("%s", err.Error())
 	}

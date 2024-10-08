@@ -84,7 +84,9 @@ func AuthInterceptor(
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to generate JWT token")
 		}
-		grpc.SendHeader(ctx, metadata.Pairs(CookieName, tokenString))
+		if err = grpc.SendHeader(ctx, metadata.Pairs(CookieName, tokenString)); err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to sent JWT token")
+		}
 	}
 
 	userID, err := jwt.GetUserID(tokenString)

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"log/slog"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -31,7 +30,6 @@ type App struct {
 	services        *service.Services
 	handler         *Handler
 	deleteWorkersWG sync.WaitGroup
-	httpServer      *http.Server
 }
 
 // NewApp Конструктор для App
