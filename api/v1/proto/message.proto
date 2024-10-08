@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package shortener;
+
+option go_package = "github.com/AsakoKabe/go-yandex-shortener/api/v1/generated;generated";
+
+
+// Message for single URL shortening request
+message ShortenRequest {
+  string url = 1;  // URL to be shortened
+}
+
+// Message for get original URL request
+message URLRequest {
+  string short_url = 1;  // shortened URL
+}
+
+// Message for get original URL response
+message URLResponse {
+  string url = 1;  // original URL
+}
+
+// Message for single URL shortening response
+message ShortenResponse {
+  string shortUrl = 1;  // Shortened URL result
+}
+
+// Message for Batch URL shortening request
+message ShortenBatchRequest {
+  // Batch URL shortening
+  message Shorten {
+    string original_url = 1;      // Original URL to be shortened
+    string correlation_id = 2;    // Correlation ID for tracking
+  }
+
+  repeated Shorten batch = 1;
+}
+
+// Message for Batch URL shortening response
+message ShortenBatchResponse {
+  // Batch URL shortening
+  message Shorten {
+    string short_url = 1;         // Shortened URL result
+    string correlation_id = 2;    // Correlation ID for tracking
+  }
+
+  repeated Shorten batch = 1;
+}
+
+// Message for the response containing user's shortened URLs
+message UserURLsBatchResponse {
+  message UserURL {
+    string short_url = 1;      // Shortened URL
+    string original_url = 2;   // Original URL before shortening
+  }
+
+  repeated UserURL batch = 1;
+}
+
+// Message for internal stats (e.g., URLs shortened and user stats)
+message InternalStats {
+  int32 urls = 1;   // Number of URLs shortened
+  int32 users = 2;  // Number of users who used the service
+}
+
+// Message for delete shortened urls
+message ShortURLs {
+  repeated string short_url = 1;  // Shortened urls
+}
+
+// Message for status delete shortened urls
+message Deleted {
+  bool status = 1;  // Status
+}

@@ -1,19 +1,18 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 	"sync"
 
+	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server"
+	middlewareUtils "github.com/AsakoKabe/go-yandex-shortener/pkg/middleware"
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
 	contextUtils "github.com/AsakoKabe/go-yandex-shortener/internal/app/context"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/errs"
-	middlewareUtils "github.com/AsakoKabe/go-yandex-shortener/internal/app/server/middleware"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/app/shortener"
 	"github.com/AsakoKabe/go-yandex-shortener/internal/logger"
 )
@@ -22,16 +21,8 @@ import (
 type Handler struct {
 	urlShortener shortener.URLShortener
 	prefixURL    string
-	deleteJobs   chan deleteJob
+	deleteJobs   chan server.DeleteJob
 	delWG        *sync.WaitGroup
-}
-
-const numDeleteJobs = 5
-const numWorkers = 5
-
-type deleteJob struct {
-	shortURL []string
-	userID   string
 }
 
 // NewHandler конструктор для Handler
@@ -40,11 +31,11 @@ func NewHandler(
 	urlShortener shortener.URLShortener,
 	prefixURL string,
 ) *Handler {
-	jobs := make(chan deleteJob, numDeleteJobs)
+	jobs := make(chan server.DeleteJob, server.NumDeleteJobs)
 
-	for w := 1; w <= numWorkers; w++ {
+	for w := 1; w <= server.NumWorkers; w++ {
 		deleteWG.Add(1)
-		go deleteWorker(deleteWG, urlShortener, jobs)
+		go server.DeleteWorker(deleteWG, urlShortener, jobs)
 	}
 
 	return &Handler{
@@ -64,7 +55,7 @@ func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if isURLEmpty(url) {
+	if server.IsURLEmpty(url) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -87,7 +78,7 @@ func (h *Handler) createShortURL(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getURL(w http.ResponseWriter, r *http.Request) {
 	shortURL := chi.URLParam(r, "id")
 
-	if isURLEmpty(shortURL) {
+	if server.IsURLEmpty(shortURL) {
 		logger.Log.Error("shortURL not found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -99,7 +90,7 @@ func (h *Handler) getURL(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if isURLEmpty(url.OriginalURL) {
+	if server.IsURLEmpty(url.OriginalURL) {
 		logger.Log.Error("URL not found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -122,7 +113,7 @@ func (h *Handler) createShortURLJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if isURLEmpty(sr.URL) {
+	if server.IsURLEmpty(sr.URL) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -244,9 +235,9 @@ func (h *Handler) deleteShorURLs(w http.ResponseWriter, r *http.Request) {
 	h.delWG.Add(1)
 	go func() {
 		defer h.delWG.Done()
-		h.deleteJobs <- deleteJob{
-			shortURL: shortURLs,
-			userID:   userID,
+		h.deleteJobs <- server.DeleteJob{
+			ShortURL: shortURLs,
+			UserID:   userID,
 		}
 	}()
 
@@ -282,19 +273,4 @@ func (h *Handler) getStats(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CloseDeleteChannel() {
 	h.delWG.Wait()
 	close(h.deleteJobs)
-}
-
-func isURLEmpty(url string) bool {
-	return url == ""
-}
-
-func deleteWorker(wg *sync.WaitGroup, urlShortener shortener.URLShortener, jobs <-chan deleteJob) {
-	defer wg.Done()
-	for j := range jobs {
-		err := urlShortener.DeleteShortURLs(context.Background(), j.shortURL, j.userID)
-		if err != nil {
-			logger.Log.Error("error to delete url", zap.String("err", err.Error()))
-		}
-	}
-	slog.Info("stop delete worker")
 }

@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/AsakoKabe/go-yandex-shortener/internal/app/server/middleware"
+	"github.com/AsakoKabe/go-yandex-shortener/pkg/middleware"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/AsakoKabe/go-yandex-shortener/config"
