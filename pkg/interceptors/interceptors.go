@@ -62,20 +62,20 @@ func SlogStreamInterceptor(logger *slog.Logger) grpc.StreamServerInterceptor {
 	}
 }
 
+const CookieName = "jwt"
+
 // AuthInterceptor is a gRPC interceptor for user authentication
 func AuthInterceptor(
 	ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
 ) (interface{}, error) {
 	var tokenString string
 
-	// Extract metadata (headers) from the context
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, status.Errorf(codes.Unauthenticated, "metadata is not provided")
 	}
 
-	// Try to retrieve the token from "authorization" metadata
-	if authHeader, exists := md["authorization"]; exists && len(authHeader) > 0 {
+	if authHeader, exists := md[CookieName]; exists && len(authHeader) > 0 {
 		tokenString = authHeader[0]
 	} else {
 		// If no token found, generate a new one
@@ -84,19 +84,15 @@ func AuthInterceptor(
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to generate JWT token")
 		}
-		// Optionally, set the new token in response metadata (if needed for clients)
-		// grpc.SendHeader(ctx, metadata.Pairs("set-cookie", tokenString))
+		grpc.SendHeader(ctx, metadata.Pairs(CookieName, tokenString))
 	}
 
-	// Get userID from token
 	userID, err := jwt.GetUserID(tokenString)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "invalid token: %v", err)
 	}
 
-	// Set the userID in the context
 	ctx = contextUtils.SetUserID(ctx, userID)
 
-	// Call the next handler with the updated context
 	return handler(ctx, req)
 }

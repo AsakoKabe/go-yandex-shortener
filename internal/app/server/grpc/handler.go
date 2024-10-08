@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	pb "github.com/AsakoKabe/go-yandex-shortener/api/v1/generated"
@@ -14,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Handler struct {
@@ -44,6 +46,12 @@ func NewHandler(
 	}
 }
 
+// CloseDeleteChannel Завершение чтения задач на удаление ссылок
+func (h *Handler) CloseDeleteChannel() {
+	h.delWG.Wait()
+	close(h.deleteJobs)
+}
+
 func (h *Handler) AddShortURL(ctx context.Context, req *pb.ShortenRequest) (
 	*pb.ShortenResponse, error,
 ) {
@@ -69,25 +77,119 @@ func (h *Handler) AddShortURL(ctx context.Context, req *pb.ShortenRequest) (
 	}, nil
 }
 
-// func (h *Handler) AddBatchShortURL(
-// 	context.Context, *pb.ShortenBatchRequest,
-// ) (*pb.ShortenBatchResponse, error) {
-// }
-//
-// func (h *Handler) GetURL(context.Context, *pb.URLRequest) (*pb.URLResponse, error) {
-// }
-//
-// func (h *Handler) GetMyURLs(context.Context, *emptypb.Empty) (*pb.UserURLsBatchResponse, error) {
-// }
-//
-// func (h *Handler) DeleteShortURLs(context.Context, *pb.ShortURLs) (*pb.Deleted, error) {
-// }
-//
-// func (h *Handler) GetStats(context.Context, *emptypb.Empty) (*pb.InternalStats, error) {
-// }
+func (h *Handler) AddBatchShortURL(
+	ctx context.Context, req *pb.ShortenBatchRequest,
+) (*pb.ShortenBatchResponse, error) {
+	var originalURLs []string
+	for _, batch := range req.Batch {
+		originalURLs = append(originalURLs, batch.OriginalUrl)
+	}
 
-// CloseDeleteChannel Завершение чтения задач на удаление ссылок
-func (h *Handler) CloseDeleteChannel() {
-	h.delWG.Wait()
-	close(h.deleteJobs)
+	userID := contextUtils.GetUserID(ctx)
+
+	shortURLs, err := h.urlShortener.AddBatch(ctx, originalURLs, userID)
+	if err != nil {
+		logger.Log.Error("error to create short url batch", zap.String("err", err.Error()))
+		return nil, status.Errorf(codes.Internal, "failed to create short URLs")
+	}
+
+	var shortURLBatch []*pb.ShortenBatchResponse_Shorten
+	for i, shortURL := range *shortURLs {
+		shortURLBatch = append(
+			shortURLBatch, &pb.ShortenBatchResponse_Shorten{
+				ShortUrl:      h.prefixURL + shortURL,
+				CorrelationId: req.Batch[i].CorrelationId,
+			},
+		)
+	}
+
+	return &pb.ShortenBatchResponse{
+		Batch: shortURLBatch,
+	}, nil
+}
+
+func (h *Handler) GetURL(ctx context.Context, req *pb.URLRequest) (*pb.URLResponse, error) {
+	shortURL := req.ShortUrl
+
+	if server.IsURLEmpty(shortURL) {
+		logger.Log.Error("shortURL not found")
+		return nil, status.Errorf(codes.InvalidArgument, "invalid or missing short URL")
+	}
+
+	url, ok := h.urlShortener.Get(ctx, shortURL)
+	if !ok {
+		logger.Log.Error("failed to retrieve URL")
+		return nil, status.Errorf(codes.NotFound, "failed to retrieve URL")
+	}
+
+	if server.IsURLEmpty(url.OriginalURL) {
+		logger.Log.Error("URL not found")
+		return nil, status.Errorf(codes.NotFound, "original URL not found")
+	}
+
+	if url.DeletedFlag {
+		return &pb.URLResponse{
+			Url: "",
+		}, nil
+	}
+
+	return &pb.URLResponse{
+		Url: url.OriginalURL,
+	}, nil
+
+}
+
+func (h *Handler) GetMyURLs(ctx context.Context, _ *emptypb.Empty) (
+	*pb.UserURLsBatchResponse, error,
+) {
+	userID := contextUtils.GetUserID(ctx)
+	fmt.Println(userID)
+
+	urls, err := h.urlShortener.GetByUserID(ctx, userID)
+	if err != nil {
+		logger.Log.Error("error to get URLs", zap.String("err", err.Error()))
+		return nil, status.Errorf(codes.Internal, "internal server error")
+	}
+
+	var shortURLBatch []*pb.UserURLsBatchResponse_UserURL
+	for _, url := range *urls {
+		shortURLBatch = append(
+			shortURLBatch, &pb.UserURLsBatchResponse_UserURL{
+				ShortUrl:    h.prefixURL + url.ShortURL,
+				OriginalUrl: url.OriginalURL,
+			},
+		)
+	}
+
+	return &pb.UserURLsBatchResponse{
+		Batch: shortURLBatch,
+	}, nil
+}
+
+func (h *Handler) DeleteShortURLs(ctx context.Context, req *pb.ShortURLs) (*pb.Deleted, error) {
+	userID := contextUtils.GetUserID(ctx)
+
+	h.delWG.Add(1)
+	go func() {
+		defer h.delWG.Done()
+		h.deleteJobs <- server.DeleteJob{
+			ShortURL: req.ShortUrl,
+			UserID:   userID,
+		}
+	}()
+
+	return &pb.Deleted{Status: true}, nil
+}
+
+func (h *Handler) GetStats(ctx context.Context, _ *emptypb.Empty) (*pb.InternalStats, error) {
+	stats, err := h.urlShortener.GetStats(ctx)
+	if err != nil {
+		logger.Log.Error("error to get stats", zap.String("err", err.Error()))
+		return nil, status.Errorf(codes.Internal, "internal server error")
+	}
+
+	return &pb.InternalStats{
+		Urls:  int32(stats.Urls),
+		Users: int32(stats.Users),
+	}, nil
 }
